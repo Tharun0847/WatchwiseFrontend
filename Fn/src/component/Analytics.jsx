@@ -150,7 +150,7 @@ function Analytics() {
               <ul className="list-unstyled">
                 <li className="mb-3 d-flex align-items-center">
                   <i className="bi bi-info-circle text-info me-3"></i>
-                  Your favorite genre seems to be <strong className="text-light ms-1">{genreData.sort((a,b) => b.value - a.value)[0]?.name || "N/A"}</strong>.
+                  Your favorite genre seems to be <strong className="text-light ms-1">{[...genreData].sort((a,b) => b.value - a.value)[0]?.name || "N/A"}</strong>.
                 </li>
                 <li className="mb-3 d-flex align-items-center">
                   <i className="bi bi-check-circle text-success me-3"></i>
