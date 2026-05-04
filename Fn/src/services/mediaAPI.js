@@ -1,5 +1,5 @@
 import axios from "axios";
-
+// import { API_BASE_URL } from "../config";
 // Anime API (Jikan - Free, no key needed)
 export const fetchTopAnime = () => axios.get("https://api.jikan.moe/v4/top/anime");
 export const searchAnime = (query) => axios.get(`https://api.jikan.moe/v4/anime?q=${query}`);

@@ -1,6 +1,7 @@
 import axios from "axios";
+import { API_BASE_URL } from "../config";
 
-const API_URL = "http://localhost:6767/watchlist";
+const API_URL = `${API_BASE_URL}/watchlist`;
 
 export const addToWatchlist = (item) => axios.post(`${API_URL}/add`, item);
 export const getWatchlist = (userId) => axios.get(`${API_URL}/${userId}`);
