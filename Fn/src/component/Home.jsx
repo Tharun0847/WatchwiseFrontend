@@ -5,6 +5,7 @@ import { getWatchlist } from "../services/watchlistAPI";
 import { useSelector } from "react-redux";
 import { useGetFavoritesQuery, useAddFavoriteMutation, useRemoveFavoriteMutation } from "../services/favoriteAPI";
 import axios from "axios";
+import { API_BASE_URL } from "../config";
 
 function Home() {
   const { user } = useSelector((state) => state.userReducer);
@@ -26,7 +27,7 @@ function Home() {
 
         if (user?.id) {
           watchlistPromise = getWatchlist(user.id);
-          favoritesPromise = axios.get(`http://localhost:6767/favorites/${user.id}`);
+          favoritesPromise = axios.get(`${API_BASE_URL}/favorites/${user.id}`);
         }
 
         const [wRes, fRes] = await Promise.all([
