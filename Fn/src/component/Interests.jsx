@@ -1,0 +1,129 @@
+import React, { useState, useEffect } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import { useUpdateProfileMutation } from "../services/authAPI";
+import { fetchMovieGenres, fetchAnimeGenres } from "../services/mediaAPI";
+import { updateUser } from "./userSlice";
+
+function Interests() {
+  const { user } = useSelector((state) => state.userReducer);
+  const [updateProfile] = useUpdateProfileMutation();
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  const [movieGenres, setMovieGenres] = useState([]);
+  const [animeGenres, setAnimeGenres] = useState([]);
+  const [selectedGenres, setSelectedGenres] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadGenres = async () => {
+      try {
+        const [mRes, aRes] = await Promise.all([
+          fetchMovieGenres(),
+          fetchAnimeGenres()
+        ]);
+        setMovieGenres(mRes.data.genres);
+        setAnimeGenres(aRes.data.data);
+        setLoading(false);
+      } catch (err) {
+        console.error("Failed to load genres", err);
+        setLoading(false);
+      }
+    };
+    loadGenres();
+  }, []);
+
+  const toggleGenre = (genreName) => {
+    if (selectedGenres.includes(genreName)) {
+      setSelectedGenres(selectedGenres.filter(g => g !== genreName));
+    } else {
+      setSelectedGenres([...selectedGenres, genreName]);
+    }
+  };
+
+  const handleSave = async () => {
+    if (selectedGenres.length < 3) {
+      return alert("Please select at least 3 genres to get good recommendations!");
+    }
+
+    try {
+      const res = await updateProfile({
+        id: user.id,
+        preferences: { genres: selectedGenres }
+      }).unwrap();
+
+      if (res.msg === "Profile Updated") {
+        const updatedUser = { ...user, preferences: res.user.preferences };
+        dispatch(updateUser(updatedUser));
+        window.localStorage.setItem("user", JSON.stringify(updatedUser));
+        navigate("/");
+      }
+    } catch (err) {
+      alert("Failed to save interests");
+    }
+  };
+
+  if (loading) return <div className="text-center mt-5 text-light">Loading interests...</div>;
+
+  return (
+    <div className="container py-5">
+      <div className="text-center mb-5">
+        <h1 className="text-info fw-bold">Welcome to WatchWise!</h1>
+        <p className="lead text-light opacity-75">Tell us what you love to get personalized recommendations.</p>
+      </div>
+
+      <div className="card bg-dark text-light border-secondary shadow-lg p-4">
+        <div className="card-body">
+          <h3 className="mb-4 text-info border-bottom border-secondary pb-2">Select Your Favorite Genres</h3>
+          
+          <div className="mb-5">
+            <h5 className="text-info opacity-75 mb-3 uppercase small">Movies</h5>
+            <div className="d-flex flex-wrap gap-2">
+              {movieGenres.map(g => (
+                <button
+                  key={g.id}
+                  className={`btn btn-sm rounded-pill px-3 transition-all ${
+                    selectedGenres.includes(g.name) ? 'btn-info text-dark fw-bold' : 'btn-outline-secondary text-light'
+                  }`}
+                  onClick={() => toggleGenre(g.name)}
+                >
+                  {g.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-5">
+            <h5 className="text-success opacity-75 mb-3 uppercase small">Anime</h5>
+            <div className="d-flex flex-wrap gap-2">
+              {animeGenres.map(g => (
+                <button
+                  key={g.mal_id}
+                  className={`btn btn-sm rounded-pill px-3 transition-all ${
+                    selectedGenres.includes(g.name) ? 'btn-success text-white fw-bold' : 'btn-outline-secondary text-light'
+                  }`}
+                  onClick={() => toggleGenre(g.name)}
+                >
+                  {g.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="text-center mt-5">
+            <button 
+              className="btn btn-info btn-lg px-5 rounded-pill fw-bold shadow text-dark"
+              onClick={handleSave}
+            >
+              Start Exploring &rarr;
+            </button>
+            <p className="mt-3 text-info opacity-50 small">You can change these later in your profile.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Interests;
