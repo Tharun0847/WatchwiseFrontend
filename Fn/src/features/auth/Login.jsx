@@ -1,6 +1,6 @@
 import { useFormik } from "formik";
 import React from "react";
-import { useLoginMutation } from "../services/authAPI";
+import { useLoginMutation } from "../../services/authAPI";
 import { useDispatch } from "react-redux";
 import { updateUser } from "./userSlice";
 import { useNavigate, Link } from "react-router-dom";
@@ -42,8 +42,8 @@ function Login() {
       style={{ minHeight: "80vh" }}
     >
       <div
-        className="card shadow-lg border-secondary bg-dark text-light"
-        style={{ width: "400px", borderRadius: "15px", border: "1px solid rgba(255,255,255,0.1)" }}
+        className="card shadow-lg border-secondary bg-dark text-light w-100"
+        style={{ maxWidth: "400px", borderRadius: "15px", border: "1px solid rgba(255,255,255,0.1)" }}
       >
         <div className="card-body p-5">
           <h2 className="text-center mb-2 fw-bold text-info">User Login</h2>

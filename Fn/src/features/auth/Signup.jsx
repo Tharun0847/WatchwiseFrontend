@@ -1,6 +1,6 @@
 import { useFormik } from "formik";
 import React from "react";
-import { useSignupMutation } from "../services/authAPI";
+import { useSignupMutation } from "../../services/authAPI";
 import { useNavigate, Link } from "react-router-dom";
 
 function Signup() {
@@ -26,10 +26,10 @@ function Signup() {
       style={{ minHeight: "85vh" }}
     >
       <div
-        className="card shadow-lg border-secondary bg-dark text-light"
-        style={{ width: "450px", borderRadius: "15px", border: "1px solid rgba(255,255,255,0.1)" }}
+        className="card shadow-lg border-secondary bg-dark text-light w-100"
+        style={{ maxWidth: "450px", borderRadius: "15px", border: "1px solid rgba(255,255,255,0.1)" }}
       >
-        <div className="card-body p-5">
+        <div className="card-body p-4 p-md-5">
           <h2 className="text-center mb-2 fw-bold text-info">Sign Up</h2>
           <p className="text-center text-secondary mb-4 small">
             Join us to discover what to watch next effortlessly

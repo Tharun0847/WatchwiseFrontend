@@ -4,18 +4,18 @@ import App from "./App.jsx";
 import { Provider } from "react-redux";
 import { store } from "./app/store.js";
 import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
-import Signup from "./component/Signup.jsx";
-import Login from "./component/Login.jsx";
-import ProtectedRoute from "./component/ProtectedRoute.jsx";
-import Movies from "./component/Movies.jsx";
-import Anime from "./component/Anime.jsx";
-import Watchlist from "./component/Watchlist.jsx";
-import Details from "./component/Details.jsx";
-import Profile from "./component/Profile.jsx";
-import Home from "./component/Home.jsx";
-import Compare from "./component/Compare.jsx";
-import Analytics from "./component/Analytics.jsx";
-import Interests from "./component/Interests.jsx";
+import Signup from "./features/auth/Signup.jsx";
+import Login from "./features/auth/Login.jsx";
+import ProtectedRoute from "./common/ProtectedRoute.jsx";
+import Movies from "./features/movies/Movies.jsx";
+import Anime from "./features/anime/Anime.jsx";
+import Watchlist from "./features/watchlist/Watchlist.jsx";
+import Details from "./common/Details.jsx";
+import Profile from "./features/profile/Profile.jsx";
+import Home from "./features/home/Home.jsx";
+import Compare from "./features/comparison/Compare.jsx";
+import Interests from "./features/profile/Interests.jsx";
+import DiscoverPeople from "./features/profile/DiscoverPeople.jsx";
 
 const router = createBrowserRouter([
   {
@@ -35,10 +35,10 @@ const router = createBrowserRouter([
           { path: "/anime", element: <Anime /> },
           { path: "/watchlist", element: <Watchlist /> },
           { path: "/compare", element: <Compare /> },
-          { path: "/analytics", element: <Analytics /> },
+          { path: "/discover", element: <DiscoverPeople /> },
           { path: "/interests", element: <Interests /> },
           { path: "/details/:type/:id", element: <Details /> },
-          { path: "/profile", element: <Profile /> },
+          { path: "/profile/:id?", element: <Profile /> },
         ],
       },
       // These routes remain public

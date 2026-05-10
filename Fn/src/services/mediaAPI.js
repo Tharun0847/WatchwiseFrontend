@@ -1,31 +1,53 @@
 import axios from "axios";
-// import { API_BASE_URL } from "../config";
-// Anime API (Jikan - Free, no key needed)
-export const fetchTopAnime = () => axios.get("https://api.jikan.moe/v4/top/anime");
-export const searchAnime = (query) => axios.get(`https://api.jikan.moe/v4/anime?q=${query}`);
-export const fetchAnimeDetails = (id) => axios.get(`https://api.jikan.moe/v4/anime/${id}/full`);
-export const fetchAnimeGenres = () => axios.get("https://api.jikan.moe/v4/genres/anime");
-export const fetchAnimeByGenre = (genreId) => axios.get(`https://api.jikan.moe/v4/anime?genres=${genreId}`);
-export const fetchAnimeRecommendations = (id) => axios.get(`https://api.jikan.moe/v4/anime/${id}/recommendations`);
+import { API_BASE_URL } from "../config";
 
-// Movies API (TMDB - Requires API Key)
-const TMDB_KEY = "bc882676942af1593f2496fcb3593dca"; 
-const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+// Increased timeout to 60 seconds to support backend retries
+axios.defaults.timeout = 60000; 
 
-export const fetchPopularMovies = () => 
-  axios.get(`${TMDB_BASE_URL}/movie/popular?api_key=${TMDB_KEY}`);
+const BACKEND_URL = `${ API_BASE_URL }/media`;
 
-export const searchMovies = (query) => 
-  axios.get(`${TMDB_BASE_URL}/search/movie?api_key=${TMDB_KEY}&query=${query}`);
+// Add a request interceptor to attach the JWT token
+axios.interceptors.request.use(
+  (config) => {
+    const token = window.localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Generic internal API calls
+export const fetchUserFavorites = (userId) => axios.get(`${ API_BASE_URL }/favorites/${userId}`);
+
+// Anime API Proxy
+export const fetchTopAnime = (page = 1) => axios.get(`${BACKEND_URL}/anime/top?page=${page}`);
+export const fetchTrendingAnime = (page = 1) => axios.get(`${BACKEND_URL}/anime/trending?page=${page}`);
+export const fetchRecentHighRatedAnime = (page = 1) => axios.get(`${BACKEND_URL}/anime/high-rated?page=${page}`);
+export const searchAnime = (query, page = 1) => axios.get(`${BACKEND_URL}/anime/search?q=${query}&page=${page}`);
+export const fetchAnimeDetails = (id) => axios.get(`${BACKEND_URL}/anime/${id}`);
+export const fetchAnimeGenres = () => axios.get(`${BACKEND_URL}/anime/genres`);
+export const fetchAnimeByGenre = (genreId, page = 1) => axios.get(`${BACKEND_URL}/anime/by-genre?genreId=${genreId}&page=${page}`);
+export const fetchAnimeRecommendations = (id) => axios.get(`${BACKEND_URL}/anime/${id}/recommendations`);
+
+// Movies API Proxy
+export const fetchPopularMovies = (page = 1) => 
+  axios.get(`${BACKEND_URL}/movie/popular?page=${page}`);
+
+export const searchMovies = (query, page = 1) => 
+  axios.get(`${BACKEND_URL}/movie/search?query=${query}&page=${page}`);
 
 export const fetchMovieDetails = (id) => 
-  axios.get(`${TMDB_BASE_URL}/movie/${id}?api_key=${TMDB_KEY}&append_to_response=videos,credits`);
+  axios.get(`${BACKEND_URL}/movie/${id}`);
 
 export const fetchMovieGenres = () => 
-  axios.get(`${TMDB_BASE_URL}/genre/movie/list?api_key=${TMDB_KEY}`);
+  axios.get(`${BACKEND_URL}/movie/genres`);
 
-export const fetchMoviesByGenre = (genreId) => 
-  axios.get(`${TMDB_BASE_URL}/discover/movie?api_key=${TMDB_KEY}&with_genres=${genreId}`);
+export const fetchMoviesByGenre = (genreId, page = 1, sortBy = "popularity.desc") => 
+  axios.get(`${BACKEND_URL}/movie/by-genre?genreId=${genreId}&page=${page}&sortBy=${sortBy}`);
 
-export const fetchMovieRecommendations = (id) => 
-  axios.get(`${TMDB_BASE_URL}/movie/${id}/recommendations?api_key=${TMDB_KEY}`);
+export const fetchMovieRecommendations = (id) =>
+  axios.get(`${BACKEND_URL}/movie/${id}/recommendations`);
