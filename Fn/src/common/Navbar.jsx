@@ -45,33 +45,6 @@ function Navbar() {
     }
   }, [location.state, navigate, location.pathname, location.search]);
 
-  const SearchForm = ({ className, style }) => (
-    <form className={className} onSubmit={handleSearch} style={style}>
-      <div className="input-group input-group-sm border border-secondary rounded-pill overflow-hidden bg-dark bg-opacity-50">
-        <span className="input-group-text bg-transparent border-0 text-info px-2">
-          <i className="bi bi-search" style={{ fontSize: "0.9rem" }}></i>
-        </span>
-        <input
-          type="text"
-          className="form-control bg-transparent border-0 text-light shadow-none ps-0"
-          placeholder="Search..."
-          value={searchInput}
-          ref={className.includes("d-lg-flex") ? searchInputRef : null}
-          onChange={(e) => setSearchInput(e.target.value)}
-        />
-        {searchInput && (
-          <button 
-            className="btn btn-link text-info text-decoration-none border-0 px-2" 
-            type="button"
-            onClick={() => setSearchInput("")}
-          >
-            <i className="bi bi-x-lg" style={{ fontSize: "0.8rem" }}></i>
-          </button>
-        )}
-      </div>
-    </form>
-  );
-
   return (
     <nav className="navbar navbar-expand-lg navbar-dark shadow sticky-top">
       <div className="container-fluid">
@@ -83,6 +56,10 @@ function Navbar() {
           <SearchForm 
             className="d-flex d-lg-none ms-auto me-2" 
             style={{ maxWidth: "150px" }} 
+            searchInput={searchInput}
+            setSearchInput={setSearchInput}
+            handleSearch={handleSearch}
+            searchInputRef={null}
           />
         )}
 
@@ -121,6 +98,10 @@ function Navbar() {
             <SearchForm 
               className="d-none d-lg-flex ms-lg-auto me-lg-3 my-2 my-lg-0" 
               style={{ maxWidth: "240px" }} 
+              searchInput={searchInput}
+              setSearchInput={setSearchInput}
+              handleSearch={handleSearch}
+              searchInputRef={searchInputRef}
             />
           )}
 
@@ -162,5 +143,32 @@ function Navbar() {
     </nav>
   );
 }
+
+const SearchForm = ({ className, style, searchInput, setSearchInput, handleSearch, searchInputRef }) => (
+  <form className={className} onSubmit={handleSearch} style={style}>
+    <div className="input-group input-group-sm border border-secondary rounded-pill overflow-hidden bg-dark bg-opacity-50">
+      <span className="input-group-text bg-transparent border-0 text-info px-2">
+        <i className="bi bi-search" style={{ fontSize: "0.9rem" }}></i>
+      </span>
+      <input
+        type="text"
+        className="form-control bg-transparent border-0 text-light shadow-none ps-0"
+        placeholder="Search..."
+        value={searchInput}
+        ref={searchInputRef}
+        onChange={(e) => setSearchInput(e.target.value)}
+      />
+      {searchInput && (
+        <button 
+          className="btn btn-link text-info text-decoration-none border-0 px-2" 
+          type="button"
+          onClick={() => setSearchInput("")}
+        >
+          <i className="bi bi-x-lg" style={{ fontSize: "0.8rem" }}></i>
+        </button>
+      )}
+    </div>
+  </form>
+);
 
 export default Navbar;
