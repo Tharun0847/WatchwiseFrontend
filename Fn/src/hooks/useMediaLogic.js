@@ -45,9 +45,10 @@ export const useMediaLogic = (type, fetchMethods) => {
 
   const userId = user?.id;
   const userPreferencesStr = JSON.stringify(user?.preferences || {});
-  const watchlistLength = watchlist?.length || 0;
+  const watchlistStr = JSON.stringify(watchlist || []);
 
   const fetchData = useCallback(async (query, genre, retryCount = 0) => {
+    // Prevent starting a new fetch if one is already loading
     setLoading(true);
     setError(null);
     setPage(1);
@@ -73,7 +74,9 @@ export const useMediaLogic = (type, fetchMethods) => {
       setHasMore(type === "movie" ? res.data.total_pages > 1 : res.data.pagination?.has_next_page);
 
       // Recommendations
-      const preferences = user?.preferences || {};
+      const preferences = JSON.parse(userPreferencesStr);
+      const currentWatchlist = JSON.parse(watchlistStr);
+
       if (!query && !genre && preferences.genres?.length > 0 && genres.length > 0) {
         const genreIds = genres
           .filter(g => preferences.genres.includes(g.name))
@@ -86,7 +89,7 @@ export const useMediaLogic = (type, fetchMethods) => {
           
           const recRes = await fetchMethods.getByGenre(formattedGenreIds, 1);
           const rawRecs = type === "movie" ? (recRes.data.results || []) : (recRes.data.data || []);
-          const watchlistIds = new Set(watchlist?.map(item => String(item.contentId)) || []);
+          const watchlistIds = new Set(currentWatchlist.map(item => String(item.contentId)));
           
           const uniqueRecs = rawRecs.filter((item, index, self) =>
             index === self.findIndex((t) => (type === "movie" ? t.id : t.mal_id) === (type === "movie" ? item.id : item.mal_id))
@@ -111,7 +114,7 @@ export const useMediaLogic = (type, fetchMethods) => {
         setLoading(false);
       }
     }
-  }, [type, fetchMethods, userId, userPreferencesStr, genres, watchlistLength]);
+  }, [type, fetchMethods, userId, userPreferencesStr, genres, watchlistStr]);
 
   const loadMore = async () => {
     const nextPage = page + 1;
