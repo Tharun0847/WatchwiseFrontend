@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { fetchPopularMovies, fetchTopAnime, fetchMoviesByGenre, fetchAnimeByGenre, fetchMovieGenres, fetchAnimeGenres, fetchUserFavorites } from "../../services/mediaAPI";
-import { getWatchlist } from "../../services/watchlistAPI";
+import { fetchPopularMovies, fetchTopAnime, fetchMoviesByGenre, fetchAnimeByGenre, fetchMovieGenres, fetchAnimeGenres } from "../../services/mediaAPI";
+import { useGetWatchlistQuery } from "../../services/watchlistAPI";
+import { useGetFavoritesQuery } from "../../services/favoriteAPI";
 import { useSelector } from "react-redux";
 import FavoriteButton from "../favorites/FavoriteButton";
 import WatchlistButton from "../watchlist/WatchlistButton";
@@ -17,29 +18,28 @@ function Home() {
   const [movieGenres, setMovieGenres] = useState([]);
   const [animeGenres, setAnimeGenres] = useState([]);
 
+  // Use RTK Query hooks for automatic caching and stability
+  const { data: watchlistData } = useGetWatchlistQuery(user?.id, { skip: !user?.id });
+  const { data: favoritesData } = useGetFavoritesQuery(user?.id, { skip: !user?.id });
+
+  const prefString = JSON.stringify(user?.preferences || {});
+  const userId = user?.id;
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
-        let effectiveGenres = [...(user?.preferences?.genres || [])];
-        let watchlistPromise, favoritesPromise;
+        const preferences = user?.preferences || {};
+        let effectiveGenres = [...(preferences.genres || [])];
 
-        if (user?.id) {
-          watchlistPromise = getWatchlist(user.id);
-          // Using centralized service with automatic auth header
-          favoritesPromise = fetchUserFavorites(user.id);
-        }
-
-        const [wRes, fRes, mGenresRes, aGenresRes] = await Promise.all([
-          watchlistPromise || Promise.resolve({ data: [] }),
-          favoritesPromise || Promise.resolve({ data: [] }),
+        const [mGenresRes, aGenresRes] = await Promise.all([
           fetchMovieGenres(),
           fetchAnimeGenres()
         ]);
 
-        const watchlist = wRes.data;
-        const currentFavorites = fRes.data;
-        const watchlistIds = new Set(watchlist.map(item => item.contentId));
+        const watchlist = watchlistData || [];
+        const currentFavorites = favoritesData || [];
+        const watchlistIds = new Set(watchlist.map(item => String(item.contentId)));
         
         setMovieGenres(mGenresRes.data.genres);
         setAnimeGenres(aGenresRes.data.data);
@@ -56,7 +56,7 @@ function Home() {
           });
         });
 
-        // Favorites items get 5 points (High Priority)
+        // Favorites items get 5 points
         currentFavorites.forEach(item => {
           item.genres?.forEach(g => {
             if (!SAFE_GENRES_TO_EXCLUDE.includes(g)) {
@@ -65,14 +65,13 @@ function Home() {
           });
         });
 
-        // 2. Combine with initial interests (give them a weight of 1)
+        // 2. Combine with initial interests
         effectiveGenres.forEach(g => {
           if (!SAFE_GENRES_TO_EXCLUDE.includes(g)) {
             behaviorGenres[g] = (behaviorGenres[g] || 0) + 1;
           }
         });
 
-        // 3. Sort genres by "interest score"
         const sortedInterests = Object.entries(behaviorGenres)
           .sort((a, b) => b[1] - a[1])
           .map(entry => entry[0]);
@@ -80,7 +79,6 @@ function Home() {
         let moviesPromise, animePromise;
 
         if (sortedInterests.length > 0) {
-          // Find IDs for the top interested genres (pick top 3 for better coverage)
           const topMovieGenreIds = sortedInterests
             .map(interest => mGenresRes.data.genres.find(g => g.name === interest)?.id)
             .filter(Boolean)
@@ -94,17 +92,17 @@ function Home() {
             .join(',');
 
           moviesPromise = topMovieGenreIds ? fetchMoviesByGenre(topMovieGenreIds) : fetchPopularMovies();
-          await new Promise(r => setTimeout(r, 500));
+          // Sequential wait to avoid burst limits
+          await new Promise(r => setTimeout(r, 400));
           animePromise = topAnimeGenreIds ? fetchAnimeByGenre(topAnimeGenreIds) : fetchTopAnime();
         } else {
           moviesPromise = fetchPopularMovies();
-          await new Promise(r => setTimeout(r, 500));
+          await new Promise(r => setTimeout(r, 400));
           animePromise = fetchTopAnime();
         }
 
         const [mRes, aRes] = await Promise.all([moviesPromise, animePromise]);
         
-        // Final Safety Filter for content results
         const isSafe = (item) => {
           if (item.adult) return false;
           if (item.rating && typeof item.rating === 'string' && (item.rating.includes("Rx") || item.rating.includes("R+"))) return false;
@@ -137,8 +135,9 @@ function Home() {
         setLoading(false);
       }
     };
+
     loadData();
-  }, [user?.preferences, user?.id]);
+  }, [prefString, userId, watchlistData, favoritesData]);
 
   return (
     <div className="home-page">

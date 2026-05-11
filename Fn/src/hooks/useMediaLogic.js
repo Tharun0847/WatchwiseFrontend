@@ -43,6 +43,10 @@ export const useMediaLogic = (type, fetchMethods) => {
     }
   }, [type, fetchMethods]);
 
+  const userId = user?.id;
+  const userPreferencesStr = JSON.stringify(user?.preferences || {});
+  const watchlistLength = watchlist?.length || 0;
+
   const fetchData = useCallback(async (query, genre, retryCount = 0) => {
     setLoading(true);
     setError(null);
@@ -69,9 +73,10 @@ export const useMediaLogic = (type, fetchMethods) => {
       setHasMore(type === "movie" ? res.data.total_pages > 1 : res.data.pagination?.has_next_page);
 
       // Recommendations
-      if (!query && !genre && user?.preferences?.genres?.length > 0 && genres.length > 0) {
+      const preferences = user?.preferences || {};
+      if (!query && !genre && preferences.genres?.length > 0 && genres.length > 0) {
         const genreIds = genres
-          .filter(g => user.preferences.genres.includes(g.name))
+          .filter(g => preferences.genres.includes(g.name))
           .map(g => (type === "movie" ? g.id : g.mal_id));
 
         if (genreIds.length > 0) {
@@ -81,7 +86,7 @@ export const useMediaLogic = (type, fetchMethods) => {
           
           const recRes = await fetchMethods.getByGenre(formattedGenreIds, 1);
           const rawRecs = type === "movie" ? (recRes.data.results || []) : (recRes.data.data || []);
-          const watchlistIds = new Set(watchlist?.map(item => item.contentId) || []);
+          const watchlistIds = new Set(watchlist?.map(item => String(item.contentId)) || []);
           
           const uniqueRecs = rawRecs.filter((item, index, self) =>
             index === self.findIndex((t) => (type === "movie" ? t.id : t.mal_id) === (type === "movie" ? item.id : item.mal_id))
@@ -106,7 +111,7 @@ export const useMediaLogic = (type, fetchMethods) => {
         setLoading(false);
       }
     }
-  }, [type, fetchMethods, user, genres, watchlist]);
+  }, [type, fetchMethods, userId, userPreferencesStr, genres, watchlistLength]);
 
   const loadMore = async () => {
     const nextPage = page + 1;
