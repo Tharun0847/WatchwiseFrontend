@@ -19,6 +19,13 @@ function Login() {
       loginFn(values).then((res) => {
         if (res.data?.msg === "loginsuccess") {
           const userData = res.data;
+          
+          // Check if user is verified
+          if (!userData.isVerified) {
+            navigate("/verify-otp", { state: { email: userData.email } });
+            return;
+          }
+
           dispatch(updateUser(userData));
           window.localStorage.setItem("user", JSON.stringify(userData));
           window.localStorage.setItem("token", userData.token);
@@ -63,7 +70,7 @@ function Login() {
               />
             </div>
 
-            <div className="mb-4">
+            <div className="mb-3">
               <label className="form-label text-light opacity-75 small uppercase fw-bold">Password</label>
               <input
                 type="password"
@@ -72,6 +79,12 @@ function Login() {
                 {...loginForm.getFieldProps("password")}
                 style={{ borderRadius: "10px", border: "1px solid rgba(255,255,255,0.2)" }}
               />
+            </div>
+
+            <div className="mb-4 text-end">
+              <Link to="/forgot-password" size="sm" className="text-info text-decoration-none small">
+                Forgot password?
+              </Link>
             </div>
 
             <button

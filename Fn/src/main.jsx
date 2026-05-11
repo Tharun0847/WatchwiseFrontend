@@ -6,6 +6,9 @@ import { store } from "./app/store.js";
 import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
 import Signup from "./features/auth/Signup.jsx";
 import Login from "./features/auth/Login.jsx";
+import VerifyOTP from "./features/auth/VerifyOTP.jsx";
+import ForgotPassword from "./features/auth/ForgotPassword.jsx";
+import ResetPassword from "./features/auth/ResetPassword.jsx";
 import ProtectedRoute from "./common/ProtectedRoute.jsx";
 import Movies from "./features/movies/Movies.jsx";
 import Anime from "./features/anime/Anime.jsx";
@@ -44,6 +47,9 @@ const router = createBrowserRouter([
       // These routes remain public
       { path: "/login", element: <Login /> },
       { path: "/signup", element: <Signup /> },
+      { path: "/verify-otp", element: <VerifyOTP /> },
+      { path: "/forgot-password", element: <ForgotPassword /> },
+      { path: "/reset-password/:token", element: <ResetPassword /> },
     ],
   },
 ]);
