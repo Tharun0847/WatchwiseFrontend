@@ -7,6 +7,7 @@ import { updateUser } from "../auth/userSlice";
 import { Link, useParams } from "react-router-dom";
 import Analytics from "../analytics/Analytics";
 import Compare from "../comparison/Compare";
+import { toast } from "react-hot-toast";
 
 function Profile() {
   const { id: urlId } = useParams();
@@ -61,12 +62,12 @@ function Profile() {
         const updatedUser = { ...currentUser, username: res.user.username, email: res.user.email };
         dispatch(updateUser(updatedUser));
         window.localStorage.setItem("user", JSON.stringify(updatedUser));
-        alert("Profile updated successfully!");
+        toast.success("Profile updated successfully!");
         setIsEditing(false);
         setFormData(prev => ({ ...prev, oldPassword: "", newPassword: "" }));
       }
     } catch (err) {
-      alert(err.data?.msg || "Error updating profile");
+      toast.error(err.data?.msg || "Error updating profile");
     }
   };
 

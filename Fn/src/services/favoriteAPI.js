@@ -5,13 +5,7 @@ export const favoriteApi = createApi({
   reducerPath: "favoriteApi",
   baseQuery: fetchBaseQuery({ 
     baseUrl: `${ API_BASE_URL }/favorites`,
-    prepareHeaders: (headers) => {
-      const token = window.localStorage.getItem("token");
-      if (token) {
-        headers.set("authorization", `Bearer ${token}`);
-      }
-      return headers;
-    },
+    credentials: "include",
   }),
   tagTypes: ["Favorites"],
   endpoints: (builder) => ({

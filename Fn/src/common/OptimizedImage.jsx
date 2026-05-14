@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 /**
  * A robust image component with:
- * 1. Lazy loading support
+ * 1. Lazy loading support (can be overridden with priority)
  * 2. Loading skeleton state
  * 3. Standardized error fallback
  * 4. Progressive loading (opacity fade-in)
  */
-const OptimizedImage = ({ src, alt, className, style, loading = "lazy" }) => {
+const OptimizedImage = ({ src, alt, className, style, loading = "lazy", priority = false }) => {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
+  const imgRef = useRef(null);
 
   // Fallback SVG (Grey placeholder with "No Image" text)
   const fallbackSrc = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='450' viewBox='0 0 300 450'%3E%3Crect width='100%25' height='100%25' fill='%23222'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23444' font-family='sans-serif' font-size='20'%3ENo Image%3C/text%3E%3C/svg%3E";
@@ -18,6 +19,11 @@ const OptimizedImage = ({ src, alt, className, style, loading = "lazy" }) => {
     // Reset state if src changes
     setLoaded(false);
     setError(false);
+
+    // If image is already in cache, it might be complete already
+    if (imgRef.current && imgRef.current.complete) {
+      setLoaded(true);
+    }
   }, [src]);
 
   return (
@@ -34,12 +40,13 @@ const OptimizedImage = ({ src, alt, className, style, loading = "lazy" }) => {
       )}
 
       <img
+        ref={imgRef}
         src={error || !src ? fallbackSrc : src}
         alt={alt}
-        loading={loading}
+        loading={priority ? "eager" : loading}
         onLoad={() => setLoaded(true)}
         onError={() => setError(true)}
-        className={`w-100 h-100 object-fit-cover transition-all duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
+        className={`w-100 h-100 object-fit-cover ${loaded ? "opacity-100" : "opacity-0"}`}
         style={{ 
             display: "block",
             transition: "opacity 0.4s ease-in-out" 

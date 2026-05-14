@@ -2,11 +2,18 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { fetchMovieDetails, fetchAnimeDetails, fetchMovieRecommendations, fetchAnimeRecommendations } from "../services/mediaAPI";
-import { useGetReviewsQuery, useAddReviewMutation, useDeleteReviewMutation } from "../services/reviewAPI";
+import { 
+  useGetReviewsQuery, 
+  useAddReviewMutation, 
+  useDeleteReviewMutation 
+} from "../services/reviewAPI";
+import { toast } from "react-hot-toast";
+
 import { useGetWatchlistQuery, useUpdateWatchlistStatusMutation } from "../services/watchlistAPI";
 import FavoriteButton from "../features/favorites/FavoriteButton";
 import WatchlistButton from "../features/watchlist/WatchlistButton";
 import OptimizedImage from "./OptimizedImage";
+import DetailSkeleton from "./DetailSkeleton";
 
 function Details() {
   const { type, id } = useParams();
@@ -41,16 +48,16 @@ function Details() {
     return !unsafeKeywords.some(word => textToSearch.includes(word));
   };
 
-  const loadDetails = async () => {
+  const loadDetails = async (signal) => {
     setLoading(true);
     try {
       let mainRes;
       
       // 1. Fetch Main Content first (Critical path)
       if (type === "movie") {
-        mainRes = await fetchMovieDetails(id);
+        mainRes = await fetchMovieDetails(id, signal);
       } else {
-        mainRes = await fetchAnimeDetails(id);
+        mainRes = await fetchAnimeDetails(id, signal);
       }
       setData(type === "movie" ? mainRes.data : mainRes.data.data);
 
@@ -59,12 +66,15 @@ function Details() {
         try {
           let recsPromise;
           if (type === "movie") {
-            recsPromise = fetchMovieRecommendations(id);
+            recsPromise = fetchMovieRecommendations(id, signal);
           } else {
             // Jikan has strict rate limits. 1s delay ensures we don't hit 429/500 as often.
             await new Promise(r => setTimeout(r, 1000));
-            recsPromise = fetchAnimeRecommendations(id).catch(err => {
-              console.warn("Recommendations failed to load", err);
+            if (signal.aborted) return;
+            recsPromise = fetchAnimeRecommendations(id, signal).catch(err => {
+              if (err.name !== "CanceledError") {
+                console.warn("Recommendations failed to load", err);
+              }
               return { data: { data: [] } }; // Graceful fallback
             });
           }
@@ -80,21 +90,27 @@ function Details() {
           
           setRecommendations(filteredRecs.slice(0, 6));
         } catch (err) {
-          console.error("Secondary data load failed", err);
+          if (err.name !== "CanceledError") {
+            console.error("Secondary data load failed", err);
+          }
         }
       };
 
       fetchSecondaryData();
       setLoading(false);
     } catch (err) {
-      console.error("Failed to load details", err);
-      setLoading(false);
+      if (err.name !== "CanceledError") {
+        console.error("Failed to load details", err);
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    loadDetails();
+    const controller = new AbortController();
+    loadDetails(controller.signal);
+    return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type, id, user?.id]);
 
@@ -102,14 +118,15 @@ function Details() {
     const newStatus = e.target.value;
     try {
       await updateWatchlistStatus({ id: watchlistItem._id, status: newStatus }).unwrap();
+      toast.success("Status updated!");
     } catch {
-      alert("Error updating status");
+      toast.error("Error updating status");
     }
   };
 
   const handleSubmitReview = async (e) => {
     e.preventDefault();
-    if (!reviewTextInput.trim()) return alert("Please write a review");
+    if (!reviewTextInput.trim()) return toast.error("Please write a review");
     try {
       await addReview({
         userId: user.id,
@@ -119,9 +136,10 @@ function Details() {
         rating: ratingInput,
         reviewText: reviewTextInput
       }).unwrap();
+      toast.success("Review added!");
       setReviewTextInput("");
     } catch {
-      alert("Failed to add review");
+      toast.error("Failed to add review");
     }
   };
 
@@ -129,13 +147,14 @@ function Details() {
     if (window.confirm("Delete this review?")) {
       try {
         await deleteReview(reviewId).unwrap();
+        toast.success("Review deleted!");
       } catch {
-        alert("Failed to delete review");
+        toast.error("Failed to delete review");
       }
     }
   };
 
-  if (loading && !data) return <div className="text-center mt-5 text-light">Loading details...</div>;
+  if (loading && !data) return <DetailSkeleton />;
   if (!data) return <div className="text-center mt-5 text-danger">Failed to load content.</div>;
 
   const isMovie = type === "movie";
@@ -147,6 +166,25 @@ function Details() {
   const description = isMovie ? data.overview : data.synopsis;
   const year = isMovie ? data.release_date?.split("-")[0] : data.year || data.status;
   
+  // Watch providers logic
+  let providers = [];
+  if (isMovie) {
+    const watchData = (data["watch/providers"] || data.watch_providers)?.results;
+    if (watchData) {
+      // Priority: IN (India) > US > first available country
+      const regionalData = watchData.IN || watchData.US || Object.values(watchData)[0];
+      // Combine all types of availability, starting with flatrate (streaming)
+      providers = [
+        ...(regionalData?.flatrate || []),
+        ...(regionalData?.ads || []),
+        ...(regionalData?.rent || []),
+        ...(regionalData?.buy || [])
+      ].filter((v, i, a) => a.findIndex(t => t.provider_id === v.provider_id) === i);
+    }
+  } else {
+    providers = data.streaming || [];
+  }
+
   // Trailer logic
   let trailerUrl = null;
   if (isMovie && data.videos?.results) {
@@ -206,6 +244,33 @@ function Details() {
             <span className="badge bg-secondary text-light small">{year}</span>
             <span className="text-warning h5 mb-0">★ {typeof rating === 'number' ? rating.toFixed(1) : 'N/A'}</span>
             <span className="badge bg-info text-dark small">{type.toUpperCase()}</span>
+          </div>
+
+          {/* Where to Watch Section */}
+          <div className="mb-4 text-center text-md-start">
+            <h5 className="text-info small uppercase mb-3">Where to Watch</h5>
+            {providers.length > 0 ? (
+              <div className="d-flex gap-3 flex-wrap justify-content-center justify-content-md-start align-items-center">
+                {providers.map((p, idx) => (
+                  <div key={idx} className="text-center" title={isMovie ? p.provider_name : p.name}>
+                    {isMovie ? (
+                      <img 
+                        src={`https://image.tmdb.org/t/p/original${p.logo_path}`} 
+                        alt={p.provider_name}
+                        className="rounded shadow-sm"
+                        style={{ width: "45px", height: "45px" }}
+                      />
+                    ) : (
+                      <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-decoration-none text-info small border border-info rounded px-2 py-1">
+                        {p.name}
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-secondary small mb-0">Not available for streaming in your region.</p>
+            )}
           </div>
           
           <h3 className="h4 border-bottom border-secondary pb-2 mb-3">Synopsis</h3>

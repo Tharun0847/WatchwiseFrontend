@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useVerifyOTPMutation, useResendOTPMutation, useChangeEmailMutation } from '../../services/authAPI';
 
@@ -8,6 +8,7 @@ const VerifyOTP = () => {
   const [message, setMessage] = useState('');
   const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [newEmail, setNewEmail] = useState('');
+  const [timer, setTimer] = useState(0);
   
   const location = useLocation();
   const navigate = useNavigate();
@@ -16,6 +17,18 @@ const VerifyOTP = () => {
   const [verifyOTP, { isLoading }] = useVerifyOTPMutation();
   const [resendOTP, { isLoading: isResending }] = useResendOTPMutation();
   const [changeEmail, { isLoading: isChanging }] = useChangeEmailMutation();
+
+  useEffect(() => {
+    let interval;
+    if (timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prevTimer) => prevTimer - 1);
+      }, 1000);
+    } else {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [timer]);
 
   if (!currentEmail) {
     return <div className="container mt-5 text-center">Invalid access. Please register first.</div>;
@@ -35,11 +48,13 @@ const VerifyOTP = () => {
   };
 
   const handleResend = async () => {
+    if (timer > 0) return;
     setError('');
     setMessage('');
     try {
       await resendOTP({ email: currentEmail }).unwrap();
       setMessage('A new OTP has been sent to your email.');
+      setTimer(60);
     } catch (err) {
       setError(err.data?.msg || 'Failed to resend OTP');
     }
@@ -54,6 +69,7 @@ const VerifyOTP = () => {
       setCurrentEmail(newEmail);
       setIsEditingEmail(false);
       setMessage('Email updated! A new OTP has been sent to ' + newEmail);
+      setTimer(60);
     } catch (err) {
       setError(err.data?.msg || 'Failed to update email');
     }
@@ -106,9 +122,13 @@ const VerifyOTP = () => {
                     <button 
                       className="btn btn-link text-decoration-none" 
                       onClick={handleResend} 
-                      disabled={isResending}
+                      disabled={isResending || timer > 0}
                     >
-                      {isResending ? 'Sending...' : "Didn't receive code? Resend OTP"}
+                      {isResending 
+                        ? 'Sending...' 
+                        : timer > 0 
+                        ? `Resend OTP in ${timer}s` 
+                        : "Didn't receive code? Resend OTP"}
                     </button>
                   </div>
                 </>

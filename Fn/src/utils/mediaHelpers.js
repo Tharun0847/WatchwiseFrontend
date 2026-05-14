@@ -1,4 +1,4 @@
-export const SAFE_GENRES_TO_EXCLUDE = ["Hentai", "Erotica", "Ecchi", "Boys Love", "Girls Love", "Sexual Violence"];
+export const SAFE_GENRES_TO_EXCLUDE = [ "Hentai", "Erotica", "Ecchi", "Boys Love", "Girls Love", "Sexual Violence","Explicit Genres" ];
 
 export const UNSAFE_KEYWORDS = [ "adult", "erotica", "sensual", "softcore", "lust", "desire", "erotic", "pleasure", "fetish", "sex", "voyeur", "prostitution", "nude", "brothel", "seduction", "xxx", "lingerie", "strip", "kink", "porn", "swinger", "orgasm", "orgies", "ejaculation", "naked", "intercourse"];
 

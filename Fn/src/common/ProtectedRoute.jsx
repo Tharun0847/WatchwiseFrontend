@@ -5,8 +5,8 @@ import { Navigate } from "react-router-dom";
 const ProtectedRoute = ({ children }) => {
   const { user } = useSelector((state) => state.userReducer);
 
-  if (!user || !user.token) {
-    // If no token is found, redirect to login
+  if (!user || !user.id) {
+    // If no user is found in state, redirect to login
     return <Navigate to="/login" replace />;
   }
 

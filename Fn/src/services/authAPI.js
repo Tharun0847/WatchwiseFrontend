@@ -6,12 +6,10 @@ export const authApi = createApi({
   baseQuery: fetchBaseQuery({ 
     baseUrl: `${ API_BASE_URL }/users`,
     prepareHeaders: (headers) => {
-      const token = window.localStorage.getItem("token");
-      if (token) {
-        headers.set("authorization", `Bearer ${token}`);
-      }
+      // Cookies are handled automatically with credentials: 'include'
       return headers;
     },
+    credentials: 'include', // Important for HttpOnly cookies
   }),
   endpoints: (builder) => ({
     login: builder.mutation({
@@ -26,6 +24,12 @@ export const authApi = createApi({
         url: "/register",
         method: "POST",
         body: user,
+      }),
+    }),
+    logout: builder.mutation({
+      query: () => ({
+        url: "/logout",
+        method: "POST",
       }),
     }),
     verifyOTP: builder.mutation({
@@ -86,6 +90,7 @@ export const authApi = createApi({
 export const { 
   useSignupMutation, 
   useLoginMutation, 
+  useLogoutMutation,
   useUpdateProfileMutation, 
   useGetUserByIdQuery,
   useVerifyOTPMutation,

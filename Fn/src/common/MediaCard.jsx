@@ -3,7 +3,7 @@ import FavoriteButton from "../features/favorites/FavoriteButton";
 import WatchlistButton from "../features/watchlist/WatchlistButton";
 import OptimizedImage from "./OptimizedImage";
 
-const MediaCard = ({ item, type, onClick, genres = [] }) => {
+const MediaCard = ({ item, type, onClick, genres = [], priority = false }) => {
   const isMovie = type === "movie";
   const title = item.title || item.name;
   const rating = isMovie ? item.vote_average : item.score;
@@ -41,6 +41,7 @@ const MediaCard = ({ item, type, onClick, genres = [] }) => {
           alt={title} 
           className="card-img-top" 
           style={{ height: "auto", aspectRatio: "2/3" }}
+          priority={priority}
         />
         <div className="card-body p-2 p-md-3">
           <h5 className={`${titleColorClass} card-title text-truncate small fw-bold mb-1`} title={title}>{title}</h5>

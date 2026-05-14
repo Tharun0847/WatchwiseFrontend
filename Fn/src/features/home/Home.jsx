@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { fetchPopularMovies, fetchTopAnime, fetchMoviesByGenre, fetchAnimeByGenre, fetchMovieGenres, fetchAnimeGenres } from "../../services/mediaAPI";
 import { useGetWatchlistQuery } from "../../services/watchlistAPI";
@@ -7,8 +7,8 @@ import { useSelector } from "react-redux";
 import FavoriteButton from "../favorites/FavoriteButton";
 import WatchlistButton from "../watchlist/WatchlistButton";
 import OptimizedImage from "../../common/OptimizedImage";
-
-const SAFE_GENRES_TO_EXCLUDE = ["Hentai", "Erotica", "Boys Love", "Girls Love", "Ecchi", "Sexual Violence"];
+import MediaSkeleton from "../../common/MediaSkeleton";
+import { SAFE_GENRES_TO_EXCLUDE } from "../../utils/mediaHelpers";
 
 function Home() {
   const { user } = useSelector((state) => state.userReducer);
@@ -17,41 +17,48 @@ function Home() {
   const [loading, setLoading] = useState(true);
   const [movieGenres, setMovieGenres] = useState([]);
   const [animeGenres, setAnimeGenres] = useState([]);
+  const [error, setError] = useState(null);
 
-  // Use RTK Query hooks for automatic caching and stability
   const { data: watchlistData } = useGetWatchlistQuery(user?.id, { skip: !user?.id });
   const { data: favoritesData } = useGetFavoritesQuery(user?.id, { skip: !user?.id });
 
-  const prefString = JSON.stringify(user?.preferences || {});
-  const userId = user?.id;
-  const watchlistStr = JSON.stringify(watchlistData || []);
-  const favoritesStr = JSON.stringify(favoritesData || []);
+  const watchlist = useMemo(() => watchlistData || [], [watchlistData]);
+  const currentFavorites = useMemo(() => favoritesData || [], [favoritesData]);
+  const userPreferences = useMemo(() => user?.preferences || {}, [user?.preferences]);
 
-  const [dataLoaded, setDataLoaded] = useState(false);
+  const isSafe = useCallback((item) => {
+    if (item.adult) return false;
+    const rating = item.rating || "";
+    if (typeof rating === 'string' && (rating.includes("Rx") || rating.includes("R+"))) return false;
+
+    const unsafeKeywords = ["nude", "sex", "porn", "adult", "erotica"];
+    const textToSearch = `${item.title || item.name || ""} ${item.overview || item.synopsis || ""}`.toLowerCase();
+    if (unsafeKeywords.some(word => textToSearch.includes(word))) return false;
+
+    return true;
+  }, []);
 
   useEffect(() => {
-    // Prevent re-running if data is already loaded for this specific user/preferences combination
-    // unless watchlist or favorites actually changed.
-    const loadData = async () => {
+    const loadInitialData = async () => {
       setLoading(true);
+      setError(null);
       try {
-        const preferences = user?.preferences || {};
-        let effectiveGenres = [...(preferences.genres || [])];
-
-        const [mGenresRes, aGenresRes] = await Promise.all([
+        // 1. Fetch Genres First (Parallel)
+        const [mGenresRes, aGenresRes] = await Promise.allSettled([
           fetchMovieGenres(),
           fetchAnimeGenres()
         ]);
 
-        const watchlist = JSON.parse(watchlistStr);
-        const currentFavorites = JSON.parse(favoritesStr);
-        const watchlistIds = new Set(watchlist.map(item => String(item.contentId)));
+        const mGenres = mGenresRes.status === 'fulfilled' ? (mGenresRes.value.data.genres || []) : [];
+        const aGenres = aGenresRes.status === 'fulfilled' ? (aGenresRes.value.data.data || []) : [];
         
-        setMovieGenres(mGenresRes.data.genres);
-        setAnimeGenres(aGenresRes.data.data);
+        setMovieGenres(mGenres);
+        setAnimeGenres(aGenres);
 
-        // ... (genre scoring logic remains the same)
+        // 2. Calculate Interests
+        const watchlistIds = new Set(watchlist.map(item => String(item.contentId)));
         const behaviorGenres = {};
+        
         watchlist.forEach(item => {
           item.genres?.forEach(g => {
             if (!SAFE_GENRES_TO_EXCLUDE.includes(g)) {
@@ -68,7 +75,7 @@ function Home() {
           });
         });
 
-        effectiveGenres.forEach(g => {
+        (userPreferences.genres || []).forEach(g => {
           if (!SAFE_GENRES_TO_EXCLUDE.includes(g)) {
             behaviorGenres[g] = (behaviorGenres[g] || 0) + 1;
           }
@@ -78,64 +85,75 @@ function Home() {
           .sort((a, b) => b[1] - a[1])
           .map(entry => entry[0]);
 
+        // 3. Construct Fetch Promises
         let moviesPromise, animePromise;
 
-        if (sortedInterests.length > 0) {
+        if (sortedInterests.length > 0 && mGenres.length > 0 && aGenres.length > 0) {
           const topMovieGenreIds = sortedInterests
-            .map(interest => mGenresRes.data.genres.find(g => g.name === interest)?.id)
+            .map(interest => mGenres.find(g => g.name === interest)?.id)
             .filter(Boolean)
             .slice(0, 3)
             .join('|');
 
           const topAnimeGenreIds = sortedInterests
-            .map(interest => aGenresRes.data.data.find(g => g.name === interest)?.mal_id)
+            .map(interest => aGenres.find(g => g.name === interest)?.mal_id)
             .filter(Boolean)
             .slice(0, 3)
             .join(',');
 
           moviesPromise = topMovieGenreIds ? fetchMoviesByGenre(topMovieGenreIds) : fetchPopularMovies();
-          await new Promise(r => setTimeout(r, 400));
-          animePromise = topAnimeGenreIds ? fetchAnimeByGenre(topAnimeGenreIds) : fetchTopAnime();
+          // Small delay for Jikan rate limit protection
+          animePromise = (async () => {
+            await new Promise(r => setTimeout(r, 600));
+            return topAnimeGenreIds ? fetchAnimeByGenre(topAnimeGenreIds) : fetchTopAnime();
+          })();
         } else {
           moviesPromise = fetchPopularMovies();
-          await new Promise(r => setTimeout(r, 400));
-          animePromise = fetchTopAnime();
+          animePromise = (async () => {
+            await new Promise(r => setTimeout(r, 600));
+            return fetchTopAnime();
+          })();
         }
 
-        const [mRes, aRes] = await Promise.all([moviesPromise, animePromise]);
+        // 4. Execute Fetching (Parallel with individual catch)
+        const [mResSettled, aResSettled] = await Promise.allSettled([moviesPromise, animePromise]);
         
-        const isSafe = (item) => {
-          if (item.adult) return false;
-          const rating = item.rating;
-          if (rating && typeof rating === 'string' && (rating.includes("Rx") || rating.includes("R+"))) return false;
+        if (mResSettled.status === 'fulfilled') {
+          const mData = mResSettled.value.data.results || mResSettled.value.data.data || [];
+          setPopularMovies(mData.filter(m => !watchlistIds.has(String(m.id))).filter(isSafe).slice(0, 6));
+        } else {
+          console.error("Movie fetch failed", mResSettled.reason);
+        }
 
-          const unsafeKeywords = ["nude", "sex", "porn", "adult", "erotica"]; // Simplified for performance
-          const textToSearch = `${item.title || item.name} ${item.overview || item.synopsis || ""}`.toLowerCase();
-          if (unsafeKeywords.some(word => textToSearch.includes(word))) return false;
+        if (aResSettled.status === 'fulfilled') {
+          const aData = aResSettled.value.data.data || aResSettled.value.data.results || [];
+          setTopAnime(aData.filter(a => !watchlistIds.has(String(a.mal_id))).filter(isSafe).slice(0, 6));
+        } else {
+          console.error("Anime fetch failed", aResSettled.reason);
+        }
 
-          return true;
-        };
-
-        const filteredMovies = (mRes.data.results || mRes.data.data || [])
-          .filter(m => !watchlistIds.has(String(m.id)))
-          .filter(isSafe);
-          
-        const filteredAnime = (aRes.data.data || aRes.data.results || [])
-          .filter(a => !watchlistIds.has(String(a.mal_id)))
-          .filter(isSafe);
-        
-        setPopularMovies(filteredMovies.slice(0, 12));
-        setTopAnime(filteredAnime.slice(0, 12));
-        setLoading(false);
-        setDataLoaded(true);
-      } catch (error) {
-        console.error("Error loading home data", error);
+      } catch (err) {
+        console.error("Home data loading failed", err);
+        setError("Failed to load recommendations. Please try again later.");
+      } finally {
         setLoading(false);
       }
     };
 
-    loadData();
-  }, [prefString, userId, watchlistStr, favoritesStr]);
+    loadInitialData();
+  }, [user?.id, userPreferences, watchlist, currentFavorites, isSafe]);
+
+  if (error && popularMovies.length === 0 && topAnime.length === 0) {
+    return (
+      <div className="container py-5 text-center">
+        <div className="alert alert-danger bg-dark text-danger border-danger">
+          <h4 className="alert-heading">Discovery Interrupted</h4>
+          <p>{error}</p>
+          <button className="btn btn-outline-danger mt-3" onClick={() => window.location.reload()}>Retry Discovery</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="home-page">
@@ -144,8 +162,8 @@ function Home() {
         <div className="container px-3">
           <h1 className="display-3 fw-bold text-info mb-2 mb-md-3">WatchWise</h1>
           <p className="lead mb-4 opacity-75 small text-md-center px-lg-5 mx-lg-5">
-            {user?.preferences?.genres?.length > 0 
-              ? `Personalized for you: Exploring ${user.preferences.genres.slice(0,3).join(', ')} and more.`
+            {userPreferences.genres?.length > 0 
+              ? `Personalized for you: Exploring ${userPreferences.genres.slice(0,3).join(', ')} and more.`
               : "Your personalized media recommendation engine. Deep analysis of your taste."}
           </p>
           {user ? (
@@ -165,7 +183,7 @@ function Home() {
       <section className="features-summary mb-5">
         <div className="row g-3 g-md-4 text-center">
           <div className="col-md-4">
-            <Link to="/movies" state={{ focusSearch: true }} className="text-decoration-none h-100">
+            <Link to="/movies" className="text-decoration-none h-100" state={{ focusSearch: true }}>
               <div className="p-4 bg-dark text-light rounded border border-secondary h-100 shadow-sm movie-card">
                 <div className="fs-1 text-info mb-3">🔍</div>
                 <h3 className="h4 text-info">Smart Discovery</h3>
@@ -185,7 +203,7 @@ function Home() {
           <div className="col-md-4">
             <Link to="/profile" className="text-decoration-none h-100">
               <div className="p-4 bg-dark text-light rounded border border-secondary h-100 shadow-sm movie-card">
-                <div className="fs-1 text-warning mb-3">📊</div>
+                <div className="fs-1 text-warning mb-3">📈</div>
                 <h3 className="h4 text-warning">Visual Analytics</h3>
                 <p className="opacity-75 small">Get deep insights into your viewing patterns with interactive charts and behavioral analysis.</p>
               </div>
@@ -202,46 +220,41 @@ function Home() {
           </h2>
           <Link to="/movies" className="text-info text-decoration-none small">View All &rarr;</Link>
         </div>
-        <div className="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 row-cols-xl-6 g-2 g-md-3">
-          {loading ? (
-             [...Array(12)].map((_, i) => (
-                <div key={i} className="col">
-                  <div className="card h-100 bg-dark border-secondary skeleton" style={{ height: "300px" }}></div>
-                </div>
-              ))
-          ) : (
-            popularMovies.map(movie => {
-              return (
-                <div key={movie.id} className="col">
-                  <div className="position-relative">
-                    <FavoriteButton 
-                      item={movie} 
-                      type="movie" 
-                      genres={movieGenres} 
-                      className="position-absolute top-0 end-0 m-1 m-md-2" 
-                    />
-                    <Link to={`/details/movie/${movie.id}`} className="text-decoration-none">
-                      <div className="card h-100 bg-dark text-light border-secondary movie-card shadow-sm">
-                        <OptimizedImage 
-                          src={movie.poster_path ? `https://image.tmdb.org/t/p/w342${movie.poster_path}` : null} 
-                          alt={movie.title} 
-                          className="card-img-top"
-                          style={{ height: "auto", aspectRatio: "2/3" }}
-                        />
-                        <div className="card-body p-1 p-md-2 text-center">
-                          <p className="card-title text-info x-small text-truncate mb-2" title={movie.title}>{movie.title}</p>
-                          <WatchlistButton item={movie} type="movie" genres={movieGenres} variant="icon" />
-                        </div>
+        {loading && popularMovies.length === 0 ? (
+          <MediaSkeleton count={6} />
+        ) : (
+          <div className="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 row-cols-xl-6 g-2 g-md-3">
+            {popularMovies.length > 0 ? popularMovies.map(movie => (
+              <div key={movie.id} className="col">
+                <div className="position-relative">
+                  <FavoriteButton 
+                    item={movie} 
+                    type="movie" 
+                    genres={movieGenres} 
+                    className="position-absolute top-0 end-0 m-1 m-md-2" 
+                  />
+                  <Link to={`/details/movie/${movie.id}`} className="text-decoration-none">
+                    <div className="card h-100 bg-dark text-light border-secondary movie-card shadow-sm">
+                      <OptimizedImage 
+                        src={movie.poster_path ? `https://image.tmdb.org/t/p/w342${movie.poster_path}` : null} 
+                        alt={movie.title} 
+                        className="card-img-top"
+                        style={{ height: "auto", aspectRatio: "2/3" }}
+                      />
+                      <div className="card-body p-1 p-md-2 text-center">
+                        <p className="card-title text-info x-small text-truncate mb-2" title={movie.title}>{movie.title}</p>
+                        <WatchlistButton item={movie} type="movie" genres={movieGenres} variant="icon" />
                       </div>
-                    </Link>
-                  </div>
+                    </div>
+                  </Link>
                 </div>
-              );
-            })
-          )}
-        </div>
+              </div>
+            )) : !loading && <p className="text-muted ps-3">No movie recommendations found right now.</p>}
+          </div>
+        )}
       </section>
 
+      {/* Recommended Anime Section */}
       <section className="trending-section mb-5 pb-5">
         <div className="d-flex justify-content-between align-items-center mb-4 px-1">
           <h2 className="text-light border-start border-success border-4 ps-3 h4 h-md-2 mb-0">
@@ -249,44 +262,38 @@ function Home() {
           </h2>
           <Link to="/anime" className="text-success text-decoration-none small">View All &rarr;</Link>
         </div>
-        <div className="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 row-cols-xl-6 g-2 g-md-3">
-          {loading ? (
-             [...Array(12)].map((_, i) => (
-                <div key={i} className="col">
-                  <div className="card h-100 bg-dark border-secondary skeleton" style={{ height: "300px" }}></div>
-                </div>
-              ))
-          ) : (
-            topAnime.map(anime => {
-              return (
-                <div key={anime.mal_id} className="col">
-                  <div className="position-relative">
-                    <FavoriteButton 
-                      item={anime} 
-                      type="anime" 
-                      genres={animeGenres} 
-                      className="position-absolute top-0 end-0 m-1 m-md-2" 
-                    />
-                    <Link to={`/details/anime/${anime.mal_id}`} className="text-decoration-none">
-                      <div className="card h-100 bg-dark text-light border-secondary movie-card shadow-sm">
-                        <OptimizedImage 
-                          src={anime.images?.jpg?.image_url || null} 
-                          alt={anime.title} 
-                          className="card-img-top"
-                          style={{ height: "auto", aspectRatio: "2/3" }}
-                        />
-                        <div className="card-body p-1 p-md-2 text-center">
-                          <p className="card-title text-success x-small text-truncate mb-2" title={anime.title}>{anime.title}</p>
-                          <WatchlistButton item={anime} type="anime" genres={animeGenres} variant="icon" />
-                        </div>
+        {loading && topAnime.length === 0 ? (
+          <MediaSkeleton count={6} />
+        ) : (
+          <div className="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 row-cols-xl-6 g-2 g-md-3">
+            {topAnime.length > 0 ? topAnime.map(anime => (
+              <div key={anime.mal_id} className="col">
+                <div className="position-relative">
+                  <FavoriteButton 
+                    item={anime} 
+                    type="anime" 
+                    genres={animeGenres} 
+                    className="position-absolute top-0 end-0 m-1 m-md-2" 
+                  />
+                  <Link to={`/details/anime/${anime.mal_id}`} className="text-decoration-none">
+                    <div className="card h-100 bg-dark text-light border-secondary movie-card shadow-sm">
+                      <OptimizedImage 
+                        src={anime.images?.jpg?.image_url || null} 
+                        alt={anime.title} 
+                        className="card-img-top"
+                        style={{ height: "auto", aspectRatio: "2/3" }}
+                      />
+                      <div className="card-body p-1 p-md-2 text-center">
+                        <p className="card-title text-success x-small text-truncate mb-2" title={anime.title}>{anime.title}</p>
+                        <WatchlistButton item={anime} type="anime" genres={animeGenres} variant="icon" />
                       </div>
-                    </Link>
-                  </div>
+                    </div>
+                  </Link>
                 </div>
-              );
-            })
-          )}
-        </div>
+              </div>
+            )) : !loading && <p className="text-muted ps-3">No anime recommendations found right now.</p>}
+          </div>
+        )}
       </section>
     </div>
   );

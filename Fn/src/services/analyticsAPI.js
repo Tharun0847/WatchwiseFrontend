@@ -5,13 +5,7 @@ export const analyticsApi = createApi({
   reducerPath: "analyticsApi",
   baseQuery: fetchBaseQuery({ 
     baseUrl: `${ API_BASE_URL }/analytics`,
-    prepareHeaders: (headers) => {
-      const token = window.localStorage.getItem("token");
-      if (token) {
-        headers.set("authorization", `Bearer ${token}`);
-      }
-      return headers;
-    },
+    credentials: "include",
   }),
   endpoints: (builder) => ({
     getUserStats: builder.query({

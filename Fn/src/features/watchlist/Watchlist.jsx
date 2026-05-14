@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { useGetWatchlistQuery, useRemoveFromWatchlistMutation, useUpdateWatchlistStatusMutation } from "../../services/watchlistAPI";
 import FavoriteButton from "../favorites/FavoriteButton";
 import OptimizedImage from "../../common/OptimizedImage";
+import MediaSkeleton from "../../common/MediaSkeleton";
+import { toast } from "react-hot-toast";
 
 function Watchlist() {
   const { user } = useSelector((state) => state.userReducer);
@@ -22,8 +24,9 @@ function Watchlist() {
     e.stopPropagation(); // Prevent navigating to details
     try {
       await removeFromWatchlist(id).unwrap();
+      toast.success("Item removed");
     } catch {
-      alert("Error removing item");
+      toast.error("Error removing item");
     }
   };
 
@@ -32,8 +35,9 @@ function Watchlist() {
     const newStatus = e.target.value;
     try {
       await updateWatchlistStatus({ id, status: newStatus }).unwrap();
+      toast.success("Status updated");
     } catch {
-      alert("Error updating status");
+      toast.error("Error updating status");
     }
   };
 
@@ -66,7 +70,14 @@ function Watchlist() {
     return itemsInStatus.filter(i => i.type.toLowerCase() === type.toLowerCase()).length;
   };
 
-  if (watchlistLoading) return <div className="text-center mt-5 text-light">Loading Watchlist...</div>;
+  if (watchlistLoading) {
+    return (
+      <div className="container py-4">
+        <div className="skeleton-shine mb-4" style={{ height: "100px", width: "100%", borderRadius: "10px" }}></div>
+        <MediaSkeleton count={12} />
+      </div>
+    );
+  }
 
   return (
     <div className="container py-4">

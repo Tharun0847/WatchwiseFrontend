@@ -5,13 +5,7 @@ export const reviewApi = createApi({
   reducerPath: "reviewApi",
   baseQuery: fetchBaseQuery({ 
     baseUrl: `${ API_BASE_URL }/reviews`,
-    prepareHeaders: (headers) => {
-      const token = window.localStorage.getItem("token");
-      if (token) {
-        headers.set("authorization", `Bearer ${token}`);
-      }
-      return headers;
-    },
+    credentials: "include",
   }),
   tagTypes: ["Reviews"],
   endpoints: (builder) => ({

@@ -5,13 +5,7 @@ export const watchlistApi = createApi({
   reducerPath: "watchlistApi",
   baseQuery: fetchBaseQuery({ 
     baseUrl: `${ API_BASE_URL }/watchlist`,
-    prepareHeaders: (headers) => {
-      const token = window.localStorage.getItem("token");
-      if (token) {
-        headers.set("authorization", `Bearer ${token}`);
-      }
-      return headers;
-    },
+    credentials: "include",
   }),
   tagTypes: ["Watchlist"],
   endpoints: (builder) => ({

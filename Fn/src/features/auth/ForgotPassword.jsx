@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForgotPasswordMutation, useVerifyResetOTPMutation } from '../../services/authAPI';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -8,10 +8,23 @@ const ForgotPassword = () => {
   const [step, setStep] = useState(1); // 1: Email, 2: OTP
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [timer, setTimer] = useState(0);
   
   const [forgotPassword, { isLoading: isSending }] = useForgotPasswordMutation();
   const [verifyResetOTP, { isLoading: isVerifying }] = useVerifyResetOTPMutation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    let interval;
+    if (timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prevTimer) => prevTimer - 1);
+      }, 1000);
+    } else {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [timer]);
 
   const handleEmailSubmit = async (e) => {
     e.preventDefault();
@@ -21,8 +34,22 @@ const ForgotPassword = () => {
       const response = await forgotPassword({ email }).unwrap();
       setMessage(response.msg || 'OTP has been sent to your email.');
       setStep(2);
+      setTimer(60);
     } catch (err) {
       setError(err.data?.msg || 'Something went wrong');
+    }
+  };
+
+  const handleResend = async () => {
+    if (timer > 0) return;
+    setMessage('');
+    setError('');
+    try {
+      const response = await forgotPassword({ email }).unwrap();
+      setMessage(response.msg || 'A new OTP has been sent to your email.');
+      setTimer(60);
+    } catch (err) {
+      setError(err.data?.msg || 'Failed to resend OTP');
     }
   };
 
@@ -93,13 +120,32 @@ const ForgotPassword = () => {
                         required
                       />
                     </div>
-                    <button type="submit" className="btn btn-primary w-100 mb-3" disabled={isVerifying}>
+                    <button type="submit" className="btn btn-primary w-100 mb-2" disabled={isVerifying}>
                       {isVerifying ? 'Verifying...' : 'Verify OTP'}
                     </button>
+                    
+                    <div className="text-center mb-3">
+                      <button 
+                        type="button"
+                        className="btn btn-link text-decoration-none small"
+                        onClick={handleResend}
+                        disabled={isSending || timer > 0}
+                      >
+                        {isSending 
+                          ? 'Sending...' 
+                          : timer > 0 
+                          ? `Resend OTP in ${timer}s` 
+                          : "Didn't receive code? Resend OTP"}
+                      </button>
+                    </div>
+
                     <button 
                       type="button" 
-                      className="btn btn-link w-100 text-decoration-none"
-                      onClick={() => setStep(1)}
+                      className="btn btn-outline-secondary w-100 text-decoration-none"
+                      onClick={() => {
+                        setStep(1);
+                        setTimer(0);
+                      }}
                     >
                       Back to Email
                     </button>

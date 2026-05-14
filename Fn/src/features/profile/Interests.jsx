@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useUpdateProfileMutation } from "../../services/authAPI";
 import { fetchMovieGenres, fetchAnimeGenres } from "../../services/mediaAPI";
 import { updateUser } from "../auth/userSlice";
+import { toast } from "react-hot-toast";
 
 const EXCLUDED_GENRES = ["Hentai", "Erotica", "Ecchi", "Boys Love", "Girls Love", "Sexual Violence", "Gourmet", "Avant Garde", "Award Winning"];
 
@@ -47,7 +48,7 @@ function Interests() {
 
   const handleSave = async () => {
     if (selectedGenres.length < 3) {
-      return alert("Please select at least 3 genres to get good recommendations!");
+      return toast.error("Please select at least 3 genres to get good recommendations!");
     }
 
     try {
@@ -60,10 +61,11 @@ function Interests() {
         const updatedUser = { ...user, preferences: res.user.preferences };
         dispatch(updateUser(updatedUser));
         window.localStorage.setItem("user", JSON.stringify(updatedUser));
+        toast.success("Interests updated!");
         navigate("/");
       }
     } catch (err) {
-      alert("Failed to save interests");
+      toast.error("Failed to save interests");
     }
   };
 

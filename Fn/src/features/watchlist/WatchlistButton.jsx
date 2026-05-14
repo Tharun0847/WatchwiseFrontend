@@ -2,6 +2,7 @@ import React from "react";
 import { useSelector } from "react-redux";
 import { useGetWatchlistQuery, useAddToWatchlistMutation, useRemoveFromWatchlistMutation } from "../../services/watchlistAPI";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-hot-toast";
 
 /**
  * A reusable Watchlist Button that handles its own state and API logic.
@@ -24,13 +25,14 @@ const WatchlistButton = ({ item, type, genres = [], variant = "full", className 
     e.stopPropagation();
 
     if (!user?.id) {
-      alert("Please login to manage your watchlist");
+      toast.error("Please login to manage your watchlist");
       return navigate("/login");
     }
 
     try {
       if (isInList) {
         await removeFromWatchlist(watchlistItem._id).unwrap();
+        toast.success("Removed from watchlist");
       } else {
         // Map genres properly
         let mappedGenres = [];
@@ -61,9 +63,11 @@ const WatchlistButton = ({ item, type, genres = [], variant = "full", className 
           genres: mappedGenres,
           type: type
         }).unwrap();
+        toast.success("Added to watchlist");
       }
     } catch (err) {
       console.error("Watchlist toggle error:", err);
+      toast.error("Failed to update watchlist");
     }
   };
 

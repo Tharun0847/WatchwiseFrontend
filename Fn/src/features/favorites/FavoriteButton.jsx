@@ -2,6 +2,7 @@ import React from "react";
 import { useSelector } from "react-redux";
 import { useGetFavoritesQuery, useAddFavoriteMutation, useRemoveFavoriteMutation } from "../../services/favoriteAPI";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-hot-toast";
 
 const FavoriteButton = ({ item, type, genres = [], className = "" }) => {
   const { user } = useSelector((state) => state.userReducer);
@@ -20,13 +21,14 @@ const FavoriteButton = ({ item, type, genres = [], className = "" }) => {
     e.stopPropagation();
 
     if (!user?.id) {
-      alert("Please login to use favorites");
+      toast.error("Please login to use favorites");
       return navigate("/login");
     }
 
     try {
       if (existingFav) {
         await removeFavorite(existingFav._id).unwrap();
+        toast.success("Removed from favorites");
       } else {
         // Map genres properly based on source
         let mappedGenres = [];
@@ -59,9 +61,11 @@ const FavoriteButton = ({ item, type, genres = [], className = "" }) => {
           genres: mappedGenres,
           type: type
         }).unwrap();
+        toast.success("Added to favorites");
       }
     } catch (err) {
       console.error("Favorite toggle error:", err);
+      toast.error("Failed to update favorites");
     }
   };
 

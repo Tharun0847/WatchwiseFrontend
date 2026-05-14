@@ -2,23 +2,36 @@ import React, { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { NavLink, Link, useNavigate, useLocation } from "react-router-dom";
 import { updateUser } from "../features/auth/userSlice";
+import { useLogoutMutation } from "../services/authAPI";
+import { toast } from "react-hot-toast";
 
 function Navbar() {
   const { user } = useSelector((state) => state.userReducer);
+  const [logoutFn] = useLogoutMutation();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
   const [isNavCollapsed, setIsNavCollapsed] = useState(true);
   const [searchInput, setSearchInput] = useState("");
   const searchInputRef = useRef(null);
+  const mobileSearchInputRef = useRef(null);
 
   const handleNavCollapse = () => setIsNavCollapsed(!isNavCollapsed);
 
-  function logout() {
-    window.localStorage.removeItem("token");
-    window.localStorage.removeItem("user");
-    dispatch(updateUser({}));
-    navigate("/login");
+  async function logout() {
+    try {
+      await logoutFn().unwrap();
+      window.localStorage.removeItem("user");
+      dispatch(updateUser({}));
+      toast.success("Logged out successfully");
+      navigate("/login");
+    } catch (err) {
+      console.error("Logout failed", err);
+      // Fallback: Clear local state anyway
+      window.localStorage.removeItem("user");
+      dispatch(updateUser({}));
+      navigate("/login");
+    }
   }
 
   const handleSearch = (e) => {
@@ -39,11 +52,21 @@ function Navbar() {
   }, [location.search]);
 
   useEffect(() => {
-    if (location.state?.focusSearch && searchInputRef.current) {
-      searchInputRef.current.focus();
+    if (location.state?.focusSearch) {
+      // Focus whichever input is visible/available
+      if (searchInputRef.current) {
+        searchInputRef.current.focus();
+      } else if (mobileSearchInputRef.current) {
+        mobileSearchInputRef.current.focus();
+      }
+      
+      // Clear the state so it doesn't refocus on every render
       navigate(location.pathname + location.search, { replace: true, state: {} });
     }
   }, [location.state, navigate, location.pathname, location.search]);
+
+  // Auth check using user.id instead of token (which is now in HttpOnly cookie)
+  const isLoggedIn = !!user?.id;
 
   return (
     <nav className="navbar navbar-expand-lg navbar-dark shadow sticky-top">
@@ -52,14 +75,14 @@ function Navbar() {
           <span style={{ letterSpacing: "1px" }}>WatchWise</span>
         </Link>
 
-        {user.token && (
+        {isLoggedIn && (
           <SearchForm 
             className="d-flex d-lg-none ms-auto me-2" 
             style={{ maxWidth: "150px" }} 
             searchInput={searchInput}
             setSearchInput={setSearchInput}
             handleSearch={handleSearch}
-            searchInputRef={null}
+            searchInputRef={mobileSearchInputRef}
           />
         )}
 
@@ -76,7 +99,7 @@ function Navbar() {
 
         <div className={`${isNavCollapsed ? 'collapse' : ''} navbar-collapse`} id="navbarNav">
           <ul className="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-4 gap-2">
-            {user.token && (
+            {isLoggedIn && (
               <>
                 <li className="nav-item">
                   <NavLink className="nav-link" to="/movies" onClick={() => setIsNavCollapsed(true)}>Movies</NavLink>
@@ -94,7 +117,7 @@ function Navbar() {
             )}
           </ul>
 
-          {user.token && (
+          {isLoggedIn && (
             <SearchForm 
               className="d-none d-lg-flex ms-lg-auto me-lg-3 my-2 my-lg-0" 
               style={{ maxWidth: "240px" }} 
@@ -106,7 +129,7 @@ function Navbar() {
           )}
 
           <div className="d-flex align-items-center gap-2 gap-lg-3 mt-3 mt-lg-0">
-            {!user.token ? (
+            {!isLoggedIn ? (
               <>
                 <Link to="/login" className="btn btn-link text-info text-decoration-none fw-bold px-2" onClick={() => setIsNavCollapsed(true)}>
                   Login
