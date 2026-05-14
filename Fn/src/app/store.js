@@ -6,6 +6,7 @@ import { favoriteApi } from "../services/favoriteAPI";
 import { comparisonApi } from "../services/comparisonAPI";
 import { analyticsApi } from "../services/analyticsAPI";
 import { watchlistApi } from "../services/watchlistAPI";
+import { mediaApi } from "../services/mediaAPI";
 import userReducer from "../features/auth/userSlice";
 
 export const store = configureStore({
@@ -17,6 +18,7 @@ export const store = configureStore({
     [comparisonApi.reducerPath]: comparisonApi.reducer,
     [analyticsApi.reducerPath]: analyticsApi.reducer,
     [watchlistApi.reducerPath]: watchlistApi.reducer,
+    [mediaApi.reducerPath]: mediaApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(
@@ -25,7 +27,8 @@ export const store = configureStore({
       favoriteApi.middleware,
       comparisonApi.middleware,
       analyticsApi.middleware,
-      watchlistApi.middleware
+      watchlistApi.middleware,
+      mediaApi.middleware
     ),
 });
 setupListeners(store.dispatch);

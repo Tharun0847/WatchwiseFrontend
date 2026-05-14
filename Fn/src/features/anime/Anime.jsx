@@ -1,16 +1,8 @@
 import React from "react";
-import { fetchTopAnime, searchAnime, fetchAnimeGenres, fetchAnimeByGenre } from "../../services/mediaAPI";
 import FilterBar from "../../common/FilterBar";
 import MediaGrid from "../../common/MediaGrid";
 import MediaSkeleton from "../../common/MediaSkeleton";
 import { useMediaLogic } from "../../hooks/useMediaLogic";
-
-const animeFetchMethods = {
-  getGenres: fetchAnimeGenres,
-  search: searchAnime,
-  getByGenre: fetchAnimeByGenre,
-  getInitial: fetchTopAnime
-};
 
 function Anime() {
   const {
@@ -34,7 +26,7 @@ function Anime() {
     loadMore,
     loadMoreRecommended,
     navigate
-  } = useMediaLogic("anime", animeFetchMethods);
+  } = useMediaLogic("anime");
 
   if (loading && items.length === 0) {
     return (

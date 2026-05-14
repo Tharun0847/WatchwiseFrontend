@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { useUpdateProfileMutation } from "../../services/authAPI";
-import { fetchMovieGenres, fetchAnimeGenres } from "../../services/mediaAPI";
+import { useGetMovieGenresQuery, useGetAnimeGenresQuery } from "../../services/mediaAPI";
 import { updateUser } from "../auth/userSlice";
 import { toast } from "react-hot-toast";
 
@@ -14,29 +14,18 @@ function Interests() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const [movieGenres, setMovieGenres] = useState([]);
-  const [animeGenres, setAnimeGenres] = useState([]);
-  const [selectedGenres, setSelectedGenres] = useState(user.preferences?.genres || []);
-  const [loading, setLoading] = useState(true);
+  // 1. Fetch Genres using RTK Query hooks
+  const { data: movieGenresData, isLoading: movieLoading } = useGetMovieGenresQuery();
+  const { data: animeGenresData, isLoading: animeLoading } = useGetAnimeGenresQuery();
 
-  useEffect(() => {
-    const loadGenres = async () => {
-      try {
-        const [mRes, aRes] = await Promise.all([
-          fetchMovieGenres(),
-          fetchAnimeGenres()
-        ]);
-        setMovieGenres(mRes.data.genres);
-        const filteredAnimeGenres = (aRes.data.data || []).filter(g => !EXCLUDED_GENRES.includes(g.name));
-        setAnimeGenres(filteredAnimeGenres);
-        setLoading(false);
-      } catch (err) {
-        console.error("Failed to load genres", err);
-        setLoading(false);
-      }
-    };
-    loadGenres();
-  }, []);
+  const [selectedGenres, setSelectedGenres] = useState(user.preferences?.genres || []);
+
+  const movieGenres = useMemo(() => movieGenresData?.genres || [], [movieGenresData]);
+  const animeGenres = useMemo(() => {
+    return (animeGenresData?.data || []).filter(g => !EXCLUDED_GENRES.includes(g.name));
+  }, [animeGenresData]);
+
+  const loading = movieLoading || animeLoading;
 
   const toggleGenre = (genreName) => {
     if (selectedGenres.includes(genreName)) {

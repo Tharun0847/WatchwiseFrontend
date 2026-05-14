@@ -1,7 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { fetchMovieDetails, fetchAnimeDetails, fetchMovieRecommendations, fetchAnimeRecommendations } from "../services/mediaAPI";
+import { 
+  useGetMovieDetailsQuery, 
+  useGetAnimeDetailsQuery, 
+  useGetMovieRecommendationsQuery, 
+  useGetAnimeRecommendationsQuery 
+} from "../services/mediaAPI";
 import { 
   useGetReviewsQuery, 
   useAddReviewMutation, 
@@ -19,21 +24,34 @@ function Details() {
   const { type, id } = useParams();
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.userReducer);
-  const [data, setData] = useState(null);
-  const [recommendations, setRecommendations] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const isMovie = type === "movie";
 
-  // Review State
-  const [ratingInput, setRatingInput] = useState(10);
-  const [reviewTextInput, setReviewTextInput] = useState("");
+  // 1. Fetch Main Content
+  const movieDetails = useGetMovieDetailsQuery(id, { skip: !isMovie });
+  const animeDetails = useGetAnimeDetailsQuery(id, { skip: isMovie });
+  const currentDetails = isMovie ? movieDetails : animeDetails;
+  
+  const data = useMemo(() => {
+    if (isMovie) return currentDetails.data;
+    return currentDetails.data?.data;
+  }, [isMovie, currentDetails.data]);
+
+  // 2. Fetch Recommendations
+  const movieRecs = useGetMovieRecommendationsQuery(id, { skip: !isMovie });
+  const animeRecs = useGetAnimeRecommendationsQuery(id, { skip: isMovie });
+  const currentRecs = isMovie ? movieRecs : animeRecs;
+
+  // 3. Review State
+  const [ratingInput, setRatingInput] = React.useState(10);
+  const [reviewTextInput, setReviewTextInput] = React.useState("");
   const { data: reviews, isLoading: reviewsLoading } = useGetReviewsQuery(id);
   const [addReview] = useAddReviewMutation();
   const [deleteReview] = useDeleteReviewMutation();
 
-  // Watchlist status handling only
+  // 4. Watchlist status handling
   const { data: watchlist } = useGetWatchlistQuery(user?.id, { skip: !user?.id });
   const [updateWatchlistStatus] = useUpdateWatchlistStatusMutation();
-  const watchlistItem = watchlist?.find(item => item.contentId === id);
+  const watchlistItem = useMemo(() => watchlist?.find(item => item.contentId === id), [watchlist, id]);
 
   const isSafe = (item) => {
     if (item.adult) return false;
@@ -42,77 +60,21 @@ function Details() {
       "softcore", "lust", "desire", "erotic", "pleasure", "fetish", "voyeur", "prostitution", "brothel",
       "seduction", "lingerie", "strip", "kink", "swinger", "orgasm", "orgies", "ejaculation", "intercourse"
     ];
-    const recTitle = type === "movie" ? item.title : (item.entry ? item.entry.title : item.title);
-    const recOverview = type === "movie" ? item.overview : (item.entry ? item.entry.synopsis : item.synopsis);
+    const recTitle = isMovie ? item.title : (item.entry ? item.entry.title : item.title);
+    const recOverview = isMovie ? item.overview : (item.entry ? item.entry.synopsis : item.synopsis);
     const textToSearch = `${recTitle} ${recOverview || ""}`.toLowerCase();
     return !unsafeKeywords.some(word => textToSearch.includes(word));
   };
 
-  const loadDetails = async (signal) => {
-    setLoading(true);
-    try {
-      let mainRes;
-      
-      // 1. Fetch Main Content first (Critical path)
-      if (type === "movie") {
-        mainRes = await fetchMovieDetails(id, signal);
-      } else {
-        mainRes = await fetchAnimeDetails(id, signal);
-      }
-      setData(type === "movie" ? mainRes.data : mainRes.data.data);
-
-      // 2. Fetch Recommendations and Watchlist (Non-critical path)
-      const fetchSecondaryData = async () => {
-        try {
-          let recsPromise;
-          if (type === "movie") {
-            recsPromise = fetchMovieRecommendations(id, signal);
-          } else {
-            // Jikan has strict rate limits. 1s delay ensures we don't hit 429/500 as often.
-            await new Promise(r => setTimeout(r, 1000));
-            if (signal.aborted) return;
-            recsPromise = fetchAnimeRecommendations(id, signal).catch(err => {
-              if (err.name !== "CanceledError") {
-                console.warn("Recommendations failed to load", err);
-              }
-              return { data: { data: [] } }; // Graceful fallback
-            });
-          }
-
-          const rRes = await recsPromise;
-          const watchlistIds = new Set(watchlist?.map(item => item.contentId) || []);
-          const recData = type === "movie" ? (rRes.data.results || []) : (rRes.data.data || []);
-          
-          const filteredRecs = recData.filter(item => {
-            const itemId = type === "movie" ? String(item.id) : String(item.entry ? item.entry.mal_id : item.mal_id);
-            return !watchlistIds.has(itemId) && isSafe(item);
-          });
-          
-          setRecommendations(filteredRecs.slice(0, 6));
-        } catch (err) {
-          if (err.name !== "CanceledError") {
-            console.error("Secondary data load failed", err);
-          }
-        }
-      };
-
-      fetchSecondaryData();
-      setLoading(false);
-    } catch (err) {
-      if (err.name !== "CanceledError") {
-        console.error("Failed to load details", err);
-        setLoading(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-    const controller = new AbortController();
-    loadDetails(controller.signal);
-    return () => controller.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type, id, user?.id]);
+  const recommendations = useMemo(() => {
+    const rawRecs = isMovie ? (currentRecs.data?.results || []) : (currentRecs.data?.data || []);
+    const watchlistIds = new Set(watchlist?.map(item => item.contentId) || []);
+    
+    return rawRecs.filter(item => {
+      const itemId = isMovie ? String(item.id) : String(item.entry ? item.entry.mal_id : item.mal_id);
+      return !watchlistIds.has(itemId) && isSafe(item);
+    }).slice(0, 6);
+  }, [isMovie, currentRecs.data, watchlist]);
 
   const handleStatusChange = async (e) => {
     const newStatus = e.target.value;
@@ -154,10 +116,13 @@ function Details() {
     }
   };
 
-  if (loading && !data) return <DetailSkeleton />;
+  React.useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id, type]);
+
+  if (currentDetails.isLoading) return <DetailSkeleton />;
   if (!data) return <div className="text-center mt-5 text-danger">Failed to load content.</div>;
 
-  const isMovie = type === "movie";
   const title = isMovie ? data.title : data.title;
   const image = isMovie 
     ? (data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : null) 
@@ -171,9 +136,7 @@ function Details() {
   if (isMovie) {
     const watchData = (data["watch/providers"] || data.watch_providers)?.results;
     if (watchData) {
-      // Priority: IN (India) > US > first available country
       const regionalData = watchData.IN || watchData.US || Object.values(watchData)[0];
-      // Combine all types of availability, starting with flatrate (streaming)
       providers = [
         ...(regionalData?.flatrate || []),
         ...(regionalData?.ads || []),
@@ -246,7 +209,6 @@ function Details() {
             <span className="badge bg-info text-dark small">{type.toUpperCase()}</span>
           </div>
 
-          {/* Where to Watch Section */}
           <div className="mb-4 text-center text-md-start">
             <h5 className="text-info small uppercase mb-3">Where to Watch</h5>
             {providers.length > 0 ? (
@@ -298,7 +260,6 @@ function Details() {
         </div>
       </div>
 
-      {/* Reviews Section */}
       <div className="row mt-5 pt-5 border-top border-secondary g-4">
         <div className="col-lg-7 order-2 order-lg-1">
           <h2 className="text-light mb-4 h3">User Reviews</h2>
@@ -367,7 +328,6 @@ function Details() {
         </div>
       </div>
 
-      {/* Recommendations Section */}
       {recommendations.length > 0 && (
         <div className="mt-5 pt-5 border-top border-secondary">
           <h2 className="text-light mb-4 h3 px-1">Recommended Content</h2>

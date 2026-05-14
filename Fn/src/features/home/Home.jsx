@@ -1,6 +1,13 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { fetchPopularMovies, fetchTopAnime, fetchMoviesByGenre, fetchAnimeByGenre, fetchMovieGenres, fetchAnimeGenres } from "../../services/mediaAPI";
+import { 
+  useGetMovieGenresQuery, 
+  useGetAnimeGenresQuery, 
+  useGetPopularMoviesQuery, 
+  useGetTopAnimeQuery, 
+  useGetMoviesByGenreQuery, 
+  useGetAnimeByGenreQuery 
+} from "../../services/mediaAPI";
 import { useGetWatchlistQuery } from "../../services/watchlistAPI";
 import { useGetFavoritesQuery } from "../../services/favoriteAPI";
 import { useSelector } from "react-redux";
@@ -12,19 +19,18 @@ import { SAFE_GENRES_TO_EXCLUDE } from "../../utils/mediaHelpers";
 
 function Home() {
   const { user } = useSelector((state) => state.userReducer);
-  const [popularMovies, setPopularMovies] = useState([]);
-  const [topAnime, setTopAnime] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [movieGenres, setMovieGenres] = useState([]);
-  const [animeGenres, setAnimeGenres] = useState([]);
-  const [error, setError] = useState(null);
+  const userPreferences = useMemo(() => user?.preferences || {}, [user?.preferences]);
 
+  // 1. Fetch Basic Data
   const { data: watchlistData } = useGetWatchlistQuery(user?.id, { skip: !user?.id });
   const { data: favoritesData } = useGetFavoritesQuery(user?.id, { skip: !user?.id });
+  const { data: movieGenresData } = useGetMovieGenresQuery();
+  const { data: animeGenresData } = useGetAnimeGenresQuery();
 
   const watchlist = useMemo(() => watchlistData || [], [watchlistData]);
   const currentFavorites = useMemo(() => favoritesData || [], [favoritesData]);
-  const userPreferences = useMemo(() => user?.preferences || {}, [user?.preferences]);
+  const movieGenres = useMemo(() => movieGenresData?.genres || [], [movieGenresData]);
+  const animeGenres = useMemo(() => animeGenresData?.data || [], [animeGenresData]);
 
   const isSafe = useCallback((item) => {
     if (item.adult) return false;
@@ -38,117 +44,88 @@ function Home() {
     return true;
   }, []);
 
-  useEffect(() => {
-    const loadInitialData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        // 1. Fetch Genres First (Parallel)
-        const [mGenresRes, aGenresRes] = await Promise.allSettled([
-          fetchMovieGenres(),
-          fetchAnimeGenres()
-        ]);
-
-        const mGenres = mGenresRes.status === 'fulfilled' ? (mGenresRes.value.data.genres || []) : [];
-        const aGenres = aGenresRes.status === 'fulfilled' ? (aGenresRes.value.data.data || []) : [];
-        
-        setMovieGenres(mGenres);
-        setAnimeGenres(aGenres);
-
-        // 2. Calculate Interests
-        const watchlistIds = new Set(watchlist.map(item => String(item.contentId)));
-        const behaviorGenres = {};
-        
-        watchlist.forEach(item => {
-          item.genres?.forEach(g => {
-            if (!SAFE_GENRES_TO_EXCLUDE.includes(g)) {
-              behaviorGenres[g] = (behaviorGenres[g] || 0) + 2;
-            }
-          });
-        });
-
-        currentFavorites.forEach(item => {
-          item.genres?.forEach(g => {
-            if (!SAFE_GENRES_TO_EXCLUDE.includes(g)) {
-              behaviorGenres[g] = (behaviorGenres[g] || 0) + 5;
-            }
-          });
-        });
-
-        (userPreferences.genres || []).forEach(g => {
-          if (!SAFE_GENRES_TO_EXCLUDE.includes(g)) {
-            behaviorGenres[g] = (behaviorGenres[g] || 0) + 1;
-          }
-        });
-
-        const sortedInterests = Object.entries(behaviorGenres)
-          .sort((a, b) => b[1] - a[1])
-          .map(entry => entry[0]);
-
-        // 3. Construct Fetch Promises
-        let moviesPromise, animePromise;
-
-        if (sortedInterests.length > 0 && mGenres.length > 0 && aGenres.length > 0) {
-          const topMovieGenreIds = sortedInterests
-            .map(interest => mGenres.find(g => g.name === interest)?.id)
-            .filter(Boolean)
-            .slice(0, 3)
-            .join('|');
-
-          const topAnimeGenreIds = sortedInterests
-            .map(interest => aGenres.find(g => g.name === interest)?.mal_id)
-            .filter(Boolean)
-            .slice(0, 3)
-            .join(',');
-
-          moviesPromise = topMovieGenreIds ? fetchMoviesByGenre(topMovieGenreIds) : fetchPopularMovies();
-          // Small delay for Jikan rate limit protection
-          animePromise = (async () => {
-            await new Promise(r => setTimeout(r, 600));
-            return topAnimeGenreIds ? fetchAnimeByGenre(topAnimeGenreIds) : fetchTopAnime();
-          })();
-        } else {
-          moviesPromise = fetchPopularMovies();
-          animePromise = (async () => {
-            await new Promise(r => setTimeout(r, 600));
-            return fetchTopAnime();
-          })();
+  // 2. Calculate Interests
+  const sortedInterests = useMemo(() => {
+    const behaviorGenres = {};
+    
+    watchlist.forEach(item => {
+      item.genres?.forEach(g => {
+        if (!SAFE_GENRES_TO_EXCLUDE.includes(g)) {
+          behaviorGenres[g] = (behaviorGenres[g] || 0) + 2;
         }
+      });
+    });
 
-        // 4. Execute Fetching (Parallel with individual catch)
-        const [mResSettled, aResSettled] = await Promise.allSettled([moviesPromise, animePromise]);
-        
-        if (mResSettled.status === 'fulfilled') {
-          const mData = mResSettled.value.data.results || mResSettled.value.data.data || [];
-          setPopularMovies(mData.filter(m => !watchlistIds.has(String(m.id))).filter(isSafe).slice(0, 6));
-        } else {
-          console.error("Movie fetch failed", mResSettled.reason);
+    currentFavorites.forEach(item => {
+      item.genres?.forEach(g => {
+        if (!SAFE_GENRES_TO_EXCLUDE.includes(g)) {
+          behaviorGenres[g] = (behaviorGenres[g] || 0) + 5;
         }
+      });
+    });
 
-        if (aResSettled.status === 'fulfilled') {
-          const aData = aResSettled.value.data.data || aResSettled.value.data.results || [];
-          setTopAnime(aData.filter(a => !watchlistIds.has(String(a.mal_id))).filter(isSafe).slice(0, 6));
-        } else {
-          console.error("Anime fetch failed", aResSettled.reason);
-        }
-
-      } catch (err) {
-        console.error("Home data loading failed", err);
-        setError("Failed to load recommendations. Please try again later.");
-      } finally {
-        setLoading(false);
+    (userPreferences.genres || []).forEach(g => {
+      if (!SAFE_GENRES_TO_EXCLUDE.includes(g)) {
+        behaviorGenres[g] = (behaviorGenres[g] || 0) + 1;
       }
-    };
+    });
 
-    loadInitialData();
-  }, [user?.id, userPreferences, watchlist, currentFavorites, isSafe]);
+    return Object.entries(behaviorGenres)
+      .sort((a, b) => b[1] - a[1])
+      .map(entry => entry[0]);
+  }, [watchlist, currentFavorites, userPreferences.genres]);
+
+  // 3. Determine top genre IDs for fetching
+  const { topMovieGenreIds, topAnimeGenreIds } = useMemo(() => {
+    if (sortedInterests.length === 0 || movieGenres.length === 0 || animeGenres.length === 0) {
+      return { topMovieGenreIds: null, topAnimeGenreIds: null };
+    }
+
+    const mIds = sortedInterests
+      .map(interest => movieGenres.find(g => g.name === interest)?.id)
+      .filter(Boolean)
+      .slice(0, 3)
+      .join('|');
+
+    const aIds = sortedInterests
+      .map(interest => animeGenres.find(g => g.name === interest)?.mal_id)
+      .filter(Boolean)
+      .slice(0, 3)
+      .join(',');
+
+    return { topMovieGenreIds: mIds, topAnimeGenreIds: aIds };
+  }, [sortedInterests, movieGenres, animeGenres]);
+
+  // 4. Fetch Recommendations or Trending
+  const movieTrendingQuery = useGetPopularMoviesQuery({ page: 1 }, { skip: !!topMovieGenreIds });
+  const movieRecQuery = useGetMoviesByGenreQuery({ genreId: topMovieGenreIds, page: 1 }, { skip: !topMovieGenreIds });
+  
+  const animeTopQuery = useGetTopAnimeQuery(1, { skip: !!topAnimeGenreIds });
+  const animeRecQuery = useGetAnimeByGenreQuery({ genreId: topAnimeGenreIds, page: 1 }, { skip: !topAnimeGenreIds });
+
+  const popularMovies = useMemo(() => {
+    const res = topMovieGenreIds ? movieRecQuery : movieTrendingQuery;
+    const raw = res.data?.results || [];
+    const watchlistIds = new Set(watchlist.map(item => String(item.contentId)));
+    return raw.filter(m => !watchlistIds.has(String(m.id))).filter(isSafe).slice(0, 6);
+  }, [topMovieGenreIds, movieRecQuery.data, movieTrendingQuery.data, watchlist, isSafe]);
+
+  const topAnime = useMemo(() => {
+    const res = topAnimeGenreIds ? animeRecQuery : animeTopQuery;
+    const raw = res.data?.data || [];
+    const watchlistIds = new Set(watchlist.map(item => String(item.contentId)));
+    return raw.filter(a => !watchlistIds.has(String(a.mal_id))).filter(isSafe).slice(0, 6);
+  }, [topAnimeGenreIds, animeRecQuery.data, animeTopQuery.data, watchlist, isSafe]);
+
+  const loading = movieTrendingQuery.isLoading || movieRecQuery.isLoading || animeTopQuery.isLoading || animeRecQuery.isLoading;
+  const error = movieTrendingQuery.error || movieRecQuery.error || animeTopQuery.error || animeRecQuery.error;
 
   if (error && popularMovies.length === 0 && topAnime.length === 0) {
     return (
       <div className="container py-5 text-center">
         <div className="alert alert-danger bg-dark text-danger border-danger">
           <h4 className="alert-heading">Discovery Interrupted</h4>
-          <p>{error}</p>
+          <p>Failed to load recommendations. Please try again later.</p>
           <button className="btn btn-outline-danger mt-3" onClick={() => window.location.reload()}>Retry Discovery</button>
         </div>
       </div>

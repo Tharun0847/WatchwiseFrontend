@@ -1,17 +1,8 @@
 import React from "react";
-import { fetchPopularMovies, searchMovies, fetchMovieGenres, fetchMoviesByGenre, fetchMovieLanguages } from "../../services/mediaAPI";
 import FilterBar from "../../common/FilterBar";
 import MediaGrid from "../../common/MediaGrid";
 import MediaSkeleton from "../../common/MediaSkeleton";
 import { useMediaLogic } from "../../hooks/useMediaLogic";
-
-const movieFetchMethods = {
-  getGenres: fetchMovieGenres,
-  getLanguages: fetchMovieLanguages,
-  search: searchMovies,
-  getByGenre: fetchMoviesByGenre,
-  getInitial: fetchPopularMovies
-};
 
 function Movies() {
   const {
@@ -38,7 +29,7 @@ function Movies() {
     loadMore,
     loadMoreRecommended,
     navigate
-  } = useMediaLogic("movie", movieFetchMethods);
+  } = useMediaLogic("movie");
 
   if (loading && items.length === 0) {
     return (
