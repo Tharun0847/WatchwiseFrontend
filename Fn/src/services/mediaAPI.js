@@ -1,14 +1,19 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { createApi, fetchBaseQuery, retry } from "@reduxjs/toolkit/query/react";
 import { API_BASE_URL } from "../config";
 
-export const mediaApi = createApi({
-  reducerPath: "mediaApi",
-  baseQuery: fetchBaseQuery({ 
+// Create a base query with retries
+const baseQuery = retry(
+  fetchBaseQuery({ 
     baseUrl: `${API_BASE_URL}/media`,
     credentials: "include",
   }),
-  // Cache for 15 minutes (900 seconds) - data will stay in memory for 15 minutes after 
-  // the component is unmounted before being garbage collected
+  { maxRetries: 2 } // Automatically try 2 more times (3 total) before failing
+);
+
+export const mediaApi = createApi({
+  reducerPath: "mediaApi",
+  baseQuery: baseQuery,
+  // Cache for 15 minutes (900 seconds)
   keepUnusedDataFor: 900, 
   endpoints: (builder) => ({
     // Anime Endpoints

@@ -42,6 +42,7 @@ function Details() {
   const currentRecs = isMovie ? movieRecs : animeRecs;
 
   // 3. Review State
+  const [showTrailer, setShowTrailer] = React.useState(false);
   const [ratingInput, setRatingInput] = React.useState(10);
   const [reviewTextInput, setReviewTextInput] = React.useState("");
   const { data: reviews, isLoading: reviewsLoading } = useGetReviewsQuery(id);
@@ -118,6 +119,7 @@ function Details() {
 
   React.useEffect(() => {
     window.scrollTo(0, 0);
+    setShowTrailer(false);
   }, [id, type]);
 
   if (currentDetails.isLoading) return <DetailSkeleton />;
@@ -152,9 +154,11 @@ function Details() {
   let trailerUrl = null;
   if (isMovie && data.videos?.results) {
     const trailer = data.videos.results.find(v => v.type === "Trailer" && v.site === "YouTube");
-    if (trailer) trailerUrl = `https://www.youtube.com/embed/${trailer.key}`;
+    if (trailer) {
+      trailerUrl = `https://www.youtube.com/embed/${trailer.key}?autoplay=1`;
+    }
   } else if (!isMovie && data.trailer?.embed_url) {
-    trailerUrl = data.trailer.embed_url;
+    trailerUrl = `${data.trailer.embed_url}${data.trailer.embed_url.includes("?") ? "&" : "?"}autoplay=1`;
   }
 
   return (
@@ -252,8 +256,40 @@ function Details() {
           {trailerUrl && (
             <div className="mt-5">
               <h3 className="h4 border-bottom border-secondary pb-2 mb-3">Trailer</h3>
-              <div className="ratio ratio-16x9 shadow-lg rounded overflow-hidden border border-secondary">
-                <iframe src={trailerUrl} title="Trailer" allowFullScreen></iframe>
+              <div
+                className="shadow-lg rounded overflow-hidden border border-secondary bg-dark"
+                style={{ width: '100%', aspectRatio: '21/9', position: 'relative' }}
+              >
+                {showTrailer ? (                  <iframe 
+                    src={trailerUrl} 
+                    title="Trailer" 
+                    allowFullScreen 
+                    allow="autoplay; encrypted-media"
+                    className="w-100 h-100"
+                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                  ></iframe>
+                ) : (
+                  <div 
+                    className="d-flex flex-column align-items-center justify-content-center cursor-pointer"
+                    onClick={() => setShowTrailer(true)}
+                    style={{ 
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      backgroundImage: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${image})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div className="text-white text-center">
+                      <i className="bi bi-play-circle-fill display-1 text-info"></i>
+                      <h4 className="mt-3 fw-bold text-info">Watch Trailer</h4>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
