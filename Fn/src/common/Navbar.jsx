@@ -19,19 +19,17 @@ function Navbar() {
   const handleNavCollapse = () => setIsNavCollapsed(!isNavCollapsed);
 
   async function logout() {
-    try {
-      await logoutFn().unwrap();
-      window.localStorage.removeItem("user");
-      dispatch(updateUser({}));
-      toast.success("Logged out successfully");
-      navigate("/login");
-    } catch (err) {
-      console.error("Logout failed", err);
-      // Fallback: Clear local state anyway
-      window.localStorage.removeItem("user");
-      dispatch(updateUser({}));
-      navigate("/login");
-    }
+    // 1. CLEAR UI INSTANTLY (User sees the Login page immediately)
+    window.localStorage.removeItem("user");
+    dispatch(updateUser({}));
+    navigate("/login");
+    toast.success("Logged out successfully");
+
+    // 2. TRIGGER SERVER LOGOUT IN BACKGROUND
+    // We don't use 'await' here so the user doesn't have to wait for the response
+    logoutFn()
+      .unwrap()
+      .catch((err) => console.error("Background logout failed:", err));
   }
 
   const handleSearch = (e) => {
