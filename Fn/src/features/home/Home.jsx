@@ -162,7 +162,9 @@ function Home() {
           <div className="col-md-4">
             <Link to="/movies" className="text-decoration-none h-100" state={{ focusSearch: true }}>
               <div className="p-4 bg-dark text-light rounded border border-secondary h-100 shadow-sm movie-card">
-                <div className="fs-1 text-info mb-3">🔍</div>
+                <div className="mb-3">
+                  <i className="bi bi-search text-info" style={{fontSize: '2.5rem'}}></i>
+                </div>
                 <h3 className="h4 text-info">Smart Discovery</h3>
                 <p className="opacity-75 small">Find your next favorite movie or anime using our advanced search and filtering system.</p>
               </div>
@@ -171,7 +173,9 @@ function Home() {
           <div className="col-md-4">
             <Link to="/watchlist" className="text-decoration-none h-100">
               <div className="p-4 bg-dark text-light rounded border border-secondary h-100 shadow-sm movie-card">
-                <div className="fs-1 text-success mb-3">📊</div>
+                <div className="mb-3">
+                  <i className="bi bi-collection-play text-success" style={{fontSize: '2.5rem'}}></i>
+                </div>
                 <h3 className="h4 text-success">Track Progress</h3>
                 <p className="opacity-75 small">Organize your library with custom statuses: Plan to Watch, Currently Watching, and Completed.</p>
               </div>
@@ -180,7 +184,9 @@ function Home() {
           <div className="col-md-4">
             <Link to="/profile" className="text-decoration-none h-100">
               <div className="p-4 bg-dark text-light rounded border border-secondary h-100 shadow-sm movie-card">
-                <div className="fs-1 text-warning mb-3">📈</div>
+                <div className="mb-3">
+                  <i className="bi bi-graph-up-arrow text-warning" style={{fontSize: '2.5rem'}}></i>
+                </div>
                 <h3 className="h4 text-warning">Visual Analytics</h3>
                 <p className="opacity-75 small">Get deep insights into your viewing patterns with interactive charts and behavioral analysis.</p>
               </div>
