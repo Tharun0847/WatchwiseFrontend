@@ -96,29 +96,39 @@ function Home() {
     return { topMovieGenreIds: mIds, topAnimeGenreIds: aIds };
   }, [sortedInterests, movieGenres, animeGenres]);
 
-  // 4. Fetch Recommendations or Trending
-  const movieTrendingQuery = useGetPopularMoviesQuery({ page: 1 }, { skip: !!topMovieGenreIds });
+  // 4. Fetch Recommendations and Trending (Trending acts as fallback)
+  const movieTrendingQuery = useGetPopularMoviesQuery({ page: 1 });
   const movieRecQuery = useGetMoviesByGenreQuery({ genreId: topMovieGenreIds, page: 1 }, { skip: !topMovieGenreIds });
   
-  const animeTopQuery = useGetTopAnimeQuery(1, { skip: !!topAnimeGenreIds });
+  const animeTopQuery = useGetTopAnimeQuery(1);
   const animeRecQuery = useGetAnimeByGenreQuery({ genreId: topAnimeGenreIds, page: 1 }, { skip: !topAnimeGenreIds });
 
   const popularMovies = useMemo(() => {
-    const res = topMovieGenreIds ? movieRecQuery : movieTrendingQuery;
-    const raw = res.data?.results || [];
+    const recs = movieRecQuery.data?.results || [];
+    const trending = movieTrendingQuery.data?.results || [];
     const watchlistIds = new Set(watchlist.map(item => String(item.contentId)));
-    return raw.filter(m => !watchlistIds.has(String(m.id))).filter(isSafe).slice(0, 6);
-  }, [topMovieGenreIds, movieRecQuery.data, movieTrendingQuery.data, watchlist, isSafe]);
+    
+    // Prioritize Recommendations, fall back to Trending
+    const filteredRecs = recs.filter(m => !watchlistIds.has(String(m.id))).filter(isSafe);
+    const filteredTrending = trending.filter(m => !watchlistIds.has(String(m.id))).filter(isSafe);
+    
+    return filteredRecs.length > 0 ? filteredRecs.slice(0, 6) : filteredTrending.slice(0, 6);
+  }, [movieRecQuery.data, movieTrendingQuery.data, watchlist, isSafe]);
 
   const topAnime = useMemo(() => {
-    const res = topAnimeGenreIds ? animeRecQuery : animeTopQuery;
-    const raw = res.data?.data || [];
+    const recs = animeRecQuery.data?.data || [];
+    const trending = animeTopQuery.data?.data || [];
     const watchlistIds = new Set(watchlist.map(item => String(item.contentId)));
-    return raw.filter(a => !watchlistIds.has(String(a.mal_id))).filter(isSafe).slice(0, 6);
-  }, [topAnimeGenreIds, animeRecQuery.data, animeTopQuery.data, watchlist, isSafe]);
+    
+    // Prioritize Recommendations, fall back to Trending
+    const filteredRecs = recs.filter(a => !watchlistIds.has(String(a.mal_id))).filter(isSafe);
+    const filteredTrending = trending.filter(a => !watchlistIds.has(String(a.mal_id))).filter(isSafe);
+    
+    return filteredRecs.length > 0 ? filteredRecs.slice(0, 6) : filteredTrending.slice(0, 6);
+  }, [animeRecQuery.data, animeTopQuery.data, watchlist, isSafe]);
 
-  const loading = movieTrendingQuery.isLoading || movieRecQuery.isLoading || animeTopQuery.isLoading || animeRecQuery.isLoading;
-  const error = movieTrendingQuery.error || movieRecQuery.error || animeTopQuery.error || animeRecQuery.error;
+  const loading = movieTrendingQuery.isLoading || animeTopQuery.isLoading;
+  const error = movieTrendingQuery.error || animeTopQuery.error;
 
   if (error && popularMovies.length === 0 && topAnime.length === 0) {
     return (

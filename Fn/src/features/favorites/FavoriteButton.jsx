@@ -9,8 +9,10 @@ const FavoriteButton = ({ item, type, genres = [], className = "" }) => {
   const navigate = useNavigate();
   
   const { data: favorites } = useGetFavoritesQuery(user?.id, { skip: !user?.id });
-  const [addFavorite] = useAddFavoriteMutation();
-  const [removeFavorite] = useRemoveFavoriteMutation();
+  const [addFavorite, { isLoading: isAdding }] = useAddFavoriteMutation();
+  const [removeFavorite, { isLoading: isRemoving }] = useRemoveFavoriteMutation();
+
+  const isSyncing = isAdding || isRemoving;
 
   const itemId = String(item.id || item.mal_id || item.contentId);
   const isFav = favorites?.some(f => f.contentId === itemId);
@@ -20,6 +22,9 @@ const FavoriteButton = ({ item, type, genres = [], className = "" }) => {
     e.preventDefault();
     e.stopPropagation();
 
+    // Prevent rapid double-clicks from causing race conditions
+    if (isSyncing) return;
+
     if (!user?.id) {
       toast.error("Please login to use favorites");
       return navigate("/login");
@@ -27,7 +32,7 @@ const FavoriteButton = ({ item, type, genres = [], className = "" }) => {
 
     try {
       if (existingFav) {
-        await removeFavorite(existingFav._id).unwrap();
+        removeFavorite(existingFav._id);
         toast.success("Removed from favorites");
       } else {
         // Map genres properly based on source
@@ -52,7 +57,7 @@ const FavoriteButton = ({ item, type, genres = [], className = "" }) => {
           image = item.images?.jpg?.large_image_url || "";
         }
 
-        await addFavorite({
+        addFavorite({
           userId: user.id,
           contentId: itemId,
           title: item.title || item.name,
@@ -60,7 +65,7 @@ const FavoriteButton = ({ item, type, genres = [], className = "" }) => {
           rating: item.vote_average || item.score || item.rating || 0,
           genres: mappedGenres,
           type: type
-        }).unwrap();
+        });
         toast.success("Added to favorites");
       }
     } catch (err) {

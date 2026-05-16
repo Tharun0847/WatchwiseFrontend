@@ -9,11 +9,24 @@ function DiscoverPeople() {
   const [searchTerm, setSearchTerm] = useState("");
   const searchInputRef = useRef(null);
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 12;
+
   const otherUsers = allUsers?.filter((u) => u._id !== currentUser.id) || [];
   
   const filteredUsers = otherUsers.filter((user) =>
     user.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const paginatedUsers = filteredUsers.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
+
+  // Reset page when search term changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchTerm]);
 
   // Auto-focus the search field on mount
   useEffect(() => {
@@ -21,6 +34,11 @@ function DiscoverPeople() {
       searchInputRef.current.focus();
     }
   }, []);
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
     <div className="container mt-4 text-light">
@@ -67,44 +85,76 @@ function DiscoverPeople() {
           Error loading users. Please try again later.
         </div>
       ) : (
-        <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4 mb-5">
-          {filteredUsers.map((user) => (
-            <div key={user._id} className="col">
-              <div className="card h-100 bg-dark border-secondary shadow-sm movie-card">
-                <div className="card-body text-center p-4">
-                  <Link to={`/profile/${user._id}`} className="text-decoration-none">
-                    <div 
-                      className="bg-info text-dark rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3 shadow-sm" 
-                      style={{ width: "64px", height: "64px", fontSize: "1.5rem", fontWeight: "bold" }}
+        <>
+          <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4 mb-4">
+            {paginatedUsers.map((user) => (
+              <div key={user._id} className="col">
+                <div className="card h-100 bg-dark border-secondary shadow-sm movie-card">
+                  <div className="card-body text-center p-4">
+                    <Link to={`/profile/${user._id}`} className="text-decoration-none">
+                      <div 
+                        className="bg-info text-dark rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3 shadow-sm" 
+                        style={{ width: "64px", height: "64px", fontSize: "1.5rem", fontWeight: "bold" }}
+                      >
+                        {user.name?.[0].toUpperCase() || "U"}
+                      </div>
+                      <h5 className="card-title text-info text-truncate mb-1">{user.name}</h5>
+                    </Link>
+                    <p className="card-text text-light opacity-50 small mb-4" style={{ minHeight: "2.5rem" }}>
+                      {user.preferences?.genres?.length > 0 
+                        ? `Interested in ${user.preferences.genres.slice(0, 2).join(", ")}` 
+                        : "Exploring genres..."}
+                    </p>
+                    
+                    <Link 
+                      to={`/profile/${user._id}`} 
+                      className="btn btn-info btn-sm rounded-pill w-100 fw-bold text-dark"
                     >
-                      {user.name?.[0].toUpperCase() || "U"}
-                    </div>
-                    <h5 className="card-title text-info text-truncate mb-1">{user.name}</h5>
-                  </Link>
-                  <p className="card-text text-light opacity-50 small mb-4" style={{ minHeight: "2.5rem" }}>
-                    {user.preferences?.genres?.length > 0 
-                      ? `Interested in ${user.preferences.genres.slice(0, 2).join(", ")}` 
-                      : ""}
-                  </p>
-                  
-                  <Link 
-                    to={`/profile/${user._id}`} 
-                    className="btn btn-info btn-sm rounded-pill w-100 fw-bold text-dark"
-                  >
-                    View Profile
-                  </Link>
+                      View Profile
+                    </Link>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-          {filteredUsers.length === 0 && (
-            <div className="col-12 text-center py-5">
-              <div className="display-4 mb-3 opacity-25">👤</div>
-              <h3 className="h5 opacity-50">No users found matching "{searchTerm}"</h3>
-              <p className="opacity-25 small">Try a different name or browse the list.</p>
+            ))}
+            {filteredUsers.length === 0 && (
+              <div className="col-12 text-center py-5">
+                <div className="display-4 mb-3 opacity-25">👤</div>
+                <h3 className="h5 opacity-50">No users found matching "{searchTerm}"</h3>
+                <p className="opacity-25 small">Try a different name or browse the list.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="d-flex flex-column align-items-center mt-5 mb-5 pt-4 border-top border-secondary">
+              <div className="d-flex align-items-center gap-3">
+                <button 
+                  className="btn btn-outline-info rounded-pill px-4 d-flex align-items-center gap-2"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 0}
+                >
+                  <i className="bi bi-arrow-left"></i> Previous
+                </button>
+                
+                <span className="text-info opacity-75 fw-bold">
+                  Page {currentPage + 1} of {totalPages}
+                </span>
+
+                <button 
+                  className="btn btn-outline-info rounded-pill px-4 d-flex align-items-center gap-2"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages - 1}
+                >
+                  Next <i className="bi bi-arrow-right"></i>
+                </button>
+              </div>
+              <p className="text-info opacity-50 x-small mt-2 uppercase tracking-wider">
+                Showing {paginatedUsers.length} of {filteredUsers.length} people
+              </p>
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );

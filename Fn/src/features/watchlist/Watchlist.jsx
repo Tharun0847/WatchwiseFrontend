@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { useGetWatchlistQuery, useRemoveFromWatchlistMutation, useUpdateWatchlistStatusMutation } from "../../services/watchlistAPI";
@@ -19,6 +19,15 @@ function Watchlist() {
   // Dual Filter State
   const [statusFilter, setStatusFilter] = useState("All");
   const [typeFilter, setTypeFilter] = useState("All");
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 12;
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [statusFilter, typeFilter]);
 
   const handleRemove = async (e, id) => {
     e.stopPropagation(); // Prevent navigating to details
@@ -47,6 +56,10 @@ function Watchlist() {
     const typeMatch = typeFilter === "All" || item.type.toLowerCase() === typeFilter.toLowerCase();
     return statusMatch && typeMatch;
   });
+
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  const paginatedItems = filteredItems.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
 
   const statuses = ["All", "Plan to Watch", "Currently Watching", "Completed"];
   const types = ["All", "Movie", "Anime"];
@@ -133,62 +146,99 @@ function Watchlist() {
           <button className="btn btn-link text-info mt-2" onClick={() => { setStatusFilter("All"); setTypeFilter("All"); }}>Reset Filters</button>
         </div>
       ) : (
-        <div className="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 row-cols-xl-6 g-2 g-md-4">
-          {filteredItems.map((item) => {
-            // Standardize TMDB image size for Watchlist
-            const optimizedImage = item.type === 'movie' && item.image?.includes('tmdb.org')
-              ? item.image.replace('/w500/', '/w342/')
-              : item.image;
+        <>
+          <div className="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 row-cols-xl-6 g-2 g-md-4">
+            {paginatedItems.map((item) => {
+              const optimizedImage = item.type === 'movie' && item.image?.includes('tmdb.org')
+                ? item.image.replace('/w500/', '/w342/')
+                : item.image;
 
-            return (
-              <div key={item._id} className="col">
-                <div 
-                  className="card h-100 bg-dark text-light border-secondary shadow-sm movie-card position-relative"
-                  onClick={() => navigate(`/details/${item.type}/${item.contentId}`)}
-                >
-                  <FavoriteButton 
-                    item={item} 
-                    type={item.type} 
-                    className="position-absolute top-0 end-0 m-1 m-md-2" 
-                  />
-                  <OptimizedImage 
-                    src={optimizedImage} 
-                    alt={item.title} 
-                    className="card-img-top" 
-                    style={{ height: "auto", aspectRatio: "2/3" }}
-                  />
-                  <div className="card-body p-2 p-md-3">
-                    <div className="d-flex justify-content-between mb-1">
-                      <h5 className="card-title text-info text-truncate small fw-bold mb-0" title={item.title}>{item.title}</h5>
+              return (
+                <div key={item._id} className="col">
+                  <div 
+                    className="card h-100 bg-dark text-light border-secondary shadow-sm movie-card position-relative"
+                    onClick={() => navigate(`/details/${item.type}/${item.contentId}`)}
+                  >
+                    <FavoriteButton 
+                      item={item} 
+                      type={item.type} 
+                      className="position-absolute top-0 end-0 m-1 m-md-2" 
+                    />
+                    <OptimizedImage 
+                      src={optimizedImage} 
+                      alt={item.title} 
+                      className="card-img-top" 
+                      style={{ height: "auto", aspectRatio: "2/3" }}
+                    />
+                    <div className="card-body p-2 p-md-3">
+                      <div className="d-flex justify-content-between mb-1">
+                        <h5 className="card-title text-info text-truncate small fw-bold mb-0" title={item.title}>{item.title}</h5>
+                      </div>
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <span className="text-warning x-small">★ {item.rating}</span>
+                        <span className={`badge ${item.type === 'movie' ? 'bg-info' : 'bg-success'} text-dark x-small d-none d-sm-inline-block`}>{item.type.toUpperCase()}</span>
+                      </div>
+                      <select 
+                        className="form-select form-select-sm bg-dark text-light border-secondary w-100 x-small py-0 px-1 mb-2"
+                        value={item.status}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => handleStatusChange(e, item._id)}
+                        style={{ fontSize: '0.7rem' }}
+                      >
+                        <option value="Plan to Watch">Plan to Watch</option>
+                        <option value="Currently Watching">Watching</option>
+                        <option value="Completed">Completed</option>
+                      </select>
+                      <button 
+                        className="btn btn-outline-danger btn-sm w-100 x-small py-1"
+                        onClick={(e) => handleRemove(e, item._id)}
+                        style={{ fontSize: '0.7rem' }}
+                      >
+                        Remove
+                      </button>
                     </div>
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                      <span className="text-warning x-small">★ {item.rating}</span>
-                      <span className={`badge ${item.type === 'movie' ? 'bg-info' : 'bg-success'} text-dark x-small d-none d-sm-inline-block`}>{item.type.toUpperCase()}</span>
-                    </div>
-                    <select 
-                      className="form-select form-select-sm bg-dark text-light border-secondary w-100 x-small py-0 px-1 mb-2"
-                      value={item.status}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => handleStatusChange(e, item._id)}
-                      style={{ fontSize: '0.7rem' }}
-                    >
-                      <option value="Plan to Watch">Plan to Watch</option>
-                      <option value="Currently Watching">Watching</option>
-                      <option value="Completed">Completed</option>
-                    </select>
-                    <button 
-                      className="btn btn-outline-danger btn-sm w-100 x-small py-1"
-                      onClick={(e) => handleRemove(e, item._id)}
-                      style={{ fontSize: '0.7rem' }}
-                    >
-                      Remove
-                    </button>
                   </div>
                 </div>
+              );
+            })}
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="d-flex flex-column align-items-center mt-5 pt-4 border-top border-secondary">
+              <div className="d-flex align-items-center gap-3">
+                <button 
+                  className="btn btn-outline-info rounded-pill px-4 d-flex align-items-center gap-2"
+                  onClick={() => {
+                    setCurrentPage(prev => Math.max(0, prev - 1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  disabled={currentPage === 0}
+                >
+                  <i className="bi bi-arrow-left"></i> Previous
+                </button>
+                
+                <span className="text-info opacity-75 fw-bold">
+                  Page {currentPage + 1} of {totalPages}
+                </span>
+
+                <button 
+                  className="btn btn-outline-info rounded-pill px-4 d-flex align-items-center gap-2"
+                  onClick={() => {
+                    setCurrentPage(prev => Math.min(totalPages - 1, prev + 1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  disabled={currentPage === totalPages - 1}
+                >
+                  Next <i className="bi bi-arrow-right"></i>
+                </button>
               </div>
-            );
-          })}
-        </div>
+              <p className="text-info opacity-50 x-small mt-2 uppercase tracking-wider">
+                Showing {paginatedItems.length} of {filteredItems.length} items
+              </p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

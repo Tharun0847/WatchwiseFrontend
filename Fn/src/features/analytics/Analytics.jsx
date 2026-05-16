@@ -23,12 +23,20 @@ function Analytics({ userId }) {
       {/* Genre Chart */}
       <div className="col-md-7">
         <h6 className="text-info mb-3">Genre Distribution</h6>
-        <div style={{ width: "100%", height: "250px" }}>
+        <div style={{ width: "100%", height: "300px" }}>
           {analyticsData.genreData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={analyticsData.genreData}>
+              <BarChart data={analyticsData.genreData} margin={{ bottom: 60 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                <XAxis dataKey="name" stroke="#fff" fontSize={10} tick={{ fill: '#aaa' }} />
+                <XAxis 
+                  dataKey="name" 
+                  stroke="#fff" 
+                  fontSize={10} 
+                  tick={{ fill: '#aaa' }} 
+                  interval={0}
+                  angle={-45}
+                  textAnchor="end"
+                />
                 <YAxis stroke="#fff" fontSize={10} tick={{ fill: '#aaa' }} />
                 <Tooltip 
                   contentStyle={{ backgroundColor: "#222", border: "1px solid #444", borderRadius: "8px" }}

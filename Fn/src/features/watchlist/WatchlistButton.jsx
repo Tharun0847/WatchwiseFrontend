@@ -16,6 +16,8 @@ const WatchlistButton = ({ item, type, genres = [], variant = "full", className 
   const [addToWatchlist, { isLoading: isAdding }] = useAddToWatchlistMutation();
   const [removeFromWatchlist, { isLoading: isRemoving }] = useRemoveFromWatchlistMutation();
 
+  const isSyncing = isAdding || isRemoving;
+
   const itemId = String(item.id || item.mal_id || item.contentId);
   const watchlistItem = watchlist?.find(w => w.contentId === itemId);
   const isInList = !!watchlistItem;
@@ -24,6 +26,9 @@ const WatchlistButton = ({ item, type, genres = [], variant = "full", className 
     e.preventDefault();
     e.stopPropagation();
 
+    // Prevent rapid double-clicks from causing race conditions
+    if (isSyncing) return;
+
     if (!user?.id) {
       toast.error("Please login to manage your watchlist");
       return navigate("/login");
@@ -31,7 +36,7 @@ const WatchlistButton = ({ item, type, genres = [], variant = "full", className 
 
     try {
       if (isInList) {
-        await removeFromWatchlist(watchlistItem._id).unwrap();
+        removeFromWatchlist(watchlistItem._id);
         toast.success("Removed from watchlist");
       } else {
         // Map genres properly
@@ -54,7 +59,7 @@ const WatchlistButton = ({ item, type, genres = [], variant = "full", className 
           image = item.images?.jpg?.large_image_url || "";
         }
 
-        await addToWatchlist({
+        addToWatchlist({
           userId: user.id,
           contentId: itemId,
           title: item.title || item.name,
@@ -62,7 +67,7 @@ const WatchlistButton = ({ item, type, genres = [], variant = "full", className 
           rating: item.vote_average || item.score || item.rating || 0,
           genres: mappedGenres,
           type: type
-        }).unwrap();
+        });
         toast.success("Added to watchlist");
       }
     } catch (err) {
@@ -71,19 +76,14 @@ const WatchlistButton = ({ item, type, genres = [], variant = "full", className 
     }
   };
 
-  const isLoading = isAdding || isRemoving;
-
   // Icon Variant (Used in Media Cards)
   if (variant === "icon") {
     return (
       <button 
         className={`btn btn-sm rounded-pill x-small py-1 mt-2 w-100 ${isInList ? (type === 'movie' ? 'btn-info text-dark' : 'btn-success text-dark') : (type === 'movie' ? 'btn-outline-info' : 'btn-outline-success')} ${className}`}
         onClick={handleToggle}
-        disabled={isLoading}
       >
-        {isLoading ? (
-          <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-        ) : isInList ? (
+        {isInList ? (
           <><i className="bi bi-check2 me-1"></i>In List</>
         ) : (
           <><i className="bi bi-plus-lg me-1"></i>Watchlist</>
@@ -97,11 +97,8 @@ const WatchlistButton = ({ item, type, genres = [], variant = "full", className 
     <button 
       className={`btn btn-lg w-100 ${isInList ? 'btn-outline-danger' : 'btn-info'} ${className}`}
       onClick={handleToggle}
-      disabled={isLoading}
     >
-      {isLoading ? (
-        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-      ) : isInList ? (
+      {isInList ? (
         <><i className="bi bi-dash-circle me-2"></i>Remove from Watchlist</>
       ) : (
         <><i className="bi bi-plus-circle me-2"></i>Add to Watchlist</>

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useUpdateProfileMutation, useGetUserByIdQuery } from "../../services/authAPI";
-import { useGetFavoritesQuery } from "../../services/favoriteAPI";
 import { useGetUserStatsQuery } from "../../services/analyticsAPI";
 import { updateUser } from "../auth/userSlice";
 import { Link, useParams } from "react-router-dom";
 import Analytics from "../analytics/Analytics";
 import Compare from "../comparison/Compare";
+import ProfileFavorites from "./ProfileFavorites";
 import { toast } from "react-hot-toast";
 
 function Profile() {
@@ -27,7 +27,6 @@ function Profile() {
     preferences: fetchedUser.preferences 
   } : null);
 
-  const { data: favorites, isLoading: favLoading } = useGetFavoritesQuery(targetUserId, { skip: !targetUserId });
   const { data: analyticsSummary, isLoading: statsLoading } = useGetUserStatsQuery(targetUserId, { skip: !targetUserId });
 
   const topGenres = analyticsSummary?.genreData 
@@ -36,12 +35,20 @@ function Profile() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [isComparing, setIsComparing] = useState(false);
+  const [showAllGenres, setShowAllGenres] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     oldPassword: "",
     newPassword: "",
   });
+
+  // Reset UI states when navigating between different profiles
+  useEffect(() => {
+    setIsComparing(false);
+    setIsEditing(false);
+    setShowAllGenres(false);
+  }, [urlId]);
 
   useEffect(() => {
     if (isOwnProfile && currentUser) {
@@ -215,7 +222,7 @@ function Profile() {
               
               <div className="d-flex flex-wrap gap-2">
                 {activeUser?.preferences?.genres?.length > 0 ? (
-                  activeUser.preferences.genres.slice(0, 8).map(genre => (
+                  (showAllGenres ? activeUser.preferences.genres : activeUser.preferences.genres.slice(0, 8)).map(genre => (
                     <span key={genre} className="badge bg-info bg-opacity-10 border border-info border-opacity-25 text-info x-small py-1 px-2 fw-normal">
                       {genre}
                     </span>
@@ -226,7 +233,12 @@ function Profile() {
                   </div>
                 )}
                 {activeUser?.preferences?.genres?.length > 8 && (
-                  <span className="text-info opacity-50 x-small align-self-center ms-1">+{activeUser.preferences.genres.length - 8} more</span>
+                  <button 
+                    className="btn btn-link p-0 text-info opacity-50 x-small align-self-center ms-1 text-decoration-none fw-bold"
+                    onClick={() => setShowAllGenres(!showAllGenres)}
+                  >
+                    {showAllGenres ? "Show Less" : `+${activeUser.preferences.genres.length - 8} more`}
+                  </button>
                 )}
               </div>
             </div>
@@ -275,54 +287,7 @@ function Profile() {
 
               {/* Favorites Section */}
               <div className="col-lg-4">
-                <div className="card bg-dark text-light border-secondary shadow-lg h-100 rounded-4">
-                  <div className="card-body p-4">
-                    <div className="d-flex align-items-center mb-4 border-bottom border-secondary pb-3">
-                      <div className="bg-info bg-opacity-10 p-2 rounded-circle me-3">
-                        <i className="bi bi-heart-fill text-info"></i>
-                      </div>
-                      <h3 className="mb-0 text-info h5 fw-bold">Favorites</h3>
-                    </div>
-                    
-                    {favLoading ? (
-                      <div className="text-center py-5">
-                        <div className="spinner-border spinner-border-sm text-info"></div>
-                        <p className="small text-info opacity-50 mt-3">Loading favs...</p>
-                      </div>
-                    ) : favorites?.length === 0 ? (
-                      <div className="text-center py-5 bg-black bg-opacity-10 rounded-4 border border-secondary border-dashed">
-                        <i className="bi bi-heart mb-3 d-block fs-1 opacity-25"></i>
-                        <p className="small text-info opacity-50">No favorites added yet.</p>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="row row-cols-2 g-3">
-                          {favorites.slice(0, 6).map((fav) => (
-                            <div key={fav._id} className="col">
-                              <Link to={`/details/${fav.type}/${fav.contentId}`} className="text-decoration-none">
-                                <div className="card h-100 bg-dark text-light border-secondary movie-card shadow-sm overflow-hidden border-0 rounded-3">
-                                  <div className="position-relative overflow-hidden" style={{ height: "130px" }}>
-                                    <img src={fav.image} className="card-img-top w-100 h-100 object-fit-cover transition-transform" alt={fav.title} />
-                                    <div className="position-absolute bottom-0 start-0 w-100 p-2 bg-dark bg-opacity-75">
-                                      <p className="card-title text-info x-small text-truncate mb-0 fw-bold" title={fav.title}>{fav.title}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </Link>
-                            </div>
-                          ))}
-                        </div>
-                        {favorites?.length > 6 && (
-                          <div className="text-center mt-4 pt-3 border-top border-secondary border-opacity-25">
-                            <span className="badge bg-secondary bg-opacity-10 text-info fw-normal x-small">
-                              + {favorites.length - 6} more
-                            </span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
+                <ProfileFavorites userId={targetUserId} />
               </div>
             </div>
           )}

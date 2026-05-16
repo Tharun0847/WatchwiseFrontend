@@ -19,6 +19,18 @@ export const watchlistApi = createApi({
         method: "POST",
         body: item,
       }),
+      async onQueryStarted(item, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          watchlistApi.util.updateQueryData("getWatchlist", item.userId, (draft) => {
+            draft.push({ ...item, _id: `temp-${Date.now()}` });
+          })
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patchResult.undo();
+        }
+      },
       invalidatesTags: ["Watchlist"],
     }),
     removeFromWatchlist: builder.mutation({
@@ -26,6 +38,31 @@ export const watchlistApi = createApi({
         url: `/remove/${id}`,
         method: "DELETE",
       }),
+      async onQueryStarted(id, { dispatch, getState, queryFulfilled }) {
+        const state = getState();
+        let targetUserId = null;
+        
+        for (const query of Object.values(state.watchlistApi.queries)) {
+          if (query.endpointName === 'getWatchlist' && query.data?.some(w => w._id === id)) {
+            targetUserId = query.originalArgs;
+            break;
+          }
+        }
+
+        if (targetUserId) {
+          const patchResult = dispatch(
+            watchlistApi.util.updateQueryData("getWatchlist", targetUserId, (draft) => {
+              const index = draft.findIndex(w => w._id === id);
+              if (index !== -1) draft.splice(index, 1);
+            })
+          );
+          try {
+            await queryFulfilled;
+          } catch {
+            patchResult.undo();
+          }
+        }
+      },
       invalidatesTags: ["Watchlist"],
     }),
     updateWatchlistStatus: builder.mutation({
