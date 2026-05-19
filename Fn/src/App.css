@@ -73,7 +73,7 @@
 
 .btn-info:hover {
   background-color: #0bb5d6;
-  /* box-shadow: 0 0 15px rgba(13, 202, 240, 0.4); */
+  box-shadow: 0 0 15px rgba(13, 202, 240, 0.4);
 }
 
 .btn-outline-info {
