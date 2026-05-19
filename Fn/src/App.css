@@ -67,7 +67,7 @@
 .btn-info {
   background-color: #0dcaf0;
   border: none;
-  color: #dedada !important;
+  color: #141414 !important;
   transition: all 0.3s ease;
 }
 
@@ -78,11 +78,24 @@
 
 .btn-outline-info {
   border-color: rgba(13, 202, 240, 0.5);
+  color: #0dcaf0;
 }
 
 .btn-outline-info:hover {
-  background-color: rgba(13, 202, 240, 0.1);
+  background-color: #0dcaf0;
   border-color: #0dcaf0;
+  color: #121212 !important;
+}
+
+.btn-outline-success {
+  border-color: rgba(40, 167, 69, 0.5);
+  color: #28a745;
+}
+
+.btn-outline-success:hover {
+  background-color: #28a745;
+  border-color: #28a745;
+  color: #121212 !important;
 }
 
 /* Global Responsive Adjustments */
