@@ -67,13 +67,13 @@
 .btn-info {
   background-color: #0dcaf0;
   border: none;
-  color: #121212 !important;
+  color: #dedada !important;
   transition: all 0.3s ease;
 }
 
 .btn-info:hover {
   background-color: #0bb5d6;
-  box-shadow: 0 0 15px rgba(13, 202, 240, 0.4);
+  /* box-shadow: 0 0 15px rgba(13, 202, 240, 0.4); */
 }
 
 .btn-outline-info {
