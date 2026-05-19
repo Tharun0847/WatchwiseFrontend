@@ -3,6 +3,7 @@ import { setupListeners } from "@reduxjs/toolkit/query";
 import { authApi } from "../services/authAPI";
 import { reviewApi } from "../services/reviewAPI";
 import { favoriteApi } from "../services/favoriteAPI";
+import { dislikeApi } from "../services/dislikeAPI";
 import { comparisonApi } from "../services/comparisonAPI";
 import { analyticsApi } from "../services/analyticsAPI";
 import { watchlistApi } from "../services/watchlistAPI";
@@ -15,6 +16,7 @@ export const store = configureStore({
     [authApi.reducerPath]: authApi.reducer,
     [reviewApi.reducerPath]: reviewApi.reducer,
     [favoriteApi.reducerPath]: favoriteApi.reducer,
+    [dislikeApi.reducerPath]: dislikeApi.reducer,
     [comparisonApi.reducerPath]: comparisonApi.reducer,
     [analyticsApi.reducerPath]: analyticsApi.reducer,
     [watchlistApi.reducerPath]: watchlistApi.reducer,
@@ -25,6 +27,7 @@ export const store = configureStore({
       authApi.middleware,
       reviewApi.middleware,
       favoriteApi.middleware,
+      dislikeApi.middleware,
       comparisonApi.middleware,
       analyticsApi.middleware,
       watchlistApi.middleware,

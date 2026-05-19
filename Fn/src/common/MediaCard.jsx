@@ -1,5 +1,6 @@
 import React from "react";
 import FavoriteButton from "../features/favorites/FavoriteButton";
+import DislikeButton from "../features/favorites/DislikeButton";
 import WatchlistButton from "../features/watchlist/WatchlistButton";
 import OptimizedImage from "./OptimizedImage";
 
@@ -35,6 +36,12 @@ const MediaCard = ({ item, type, onClick, genres = [], priority = false }) => {
           type={type} 
           genres={genres} 
           className="position-absolute top-0 end-0 m-1 m-md-2" 
+        />
+        <DislikeButton 
+          item={item} 
+          type={type} 
+          genres={genres} 
+          className="position-absolute top-0 start-0 m-1 m-md-2" 
         />
         <OptimizedImage 
           src={image} 

@@ -1,6 +1,7 @@
 import React from "react";
 import { useSelector } from "react-redux";
 import { useGetFavoritesQuery, useAddFavoriteMutation, useRemoveFavoriteMutation } from "../../services/favoriteAPI";
+import { useGetDislikesQuery, useRemoveDislikeMutation } from "../../services/dislikeAPI";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 
@@ -9,14 +10,17 @@ const FavoriteButton = ({ item, type, genres = [], className = "" }) => {
   const navigate = useNavigate();
   
   const { data: favorites } = useGetFavoritesQuery(user?.id, { skip: !user?.id });
+  const { data: dislikes } = useGetDislikesQuery(user?.id, { skip: !user?.id });
   const [addFavorite, { isLoading: isAdding }] = useAddFavoriteMutation();
   const [removeFavorite, { isLoading: isRemoving }] = useRemoveFavoriteMutation();
+  const [removeDislike] = useRemoveDislikeMutation();
 
   const isSyncing = isAdding || isRemoving;
 
   const itemId = String(item.id || item.mal_id || item.contentId);
   const isFav = favorites?.some(f => f.contentId === itemId);
   const existingFav = favorites?.find(f => f.contentId === itemId);
+  const existingDislike = dislikes?.find(d => d.contentId === itemId);
 
   const handleToggle = async (e) => {
     e.preventDefault();
@@ -32,9 +36,14 @@ const FavoriteButton = ({ item, type, genres = [], className = "" }) => {
 
     try {
       if (existingFav) {
-        removeFavorite(existingFav._id);
+        await removeFavorite(existingFav._id).unwrap();
         toast.success("Removed from favorites");
       } else {
+        // If it's in dislikes, remove it first
+        if (existingDislike) {
+          await removeDislike(existingDislike._id).unwrap();
+        }
+
         // Map genres properly based on source
         let mappedGenres = [];
         if (item.genres && Array.isArray(item.genres)) {

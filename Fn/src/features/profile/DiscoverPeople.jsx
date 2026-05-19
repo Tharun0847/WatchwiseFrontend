@@ -93,10 +93,14 @@ function DiscoverPeople() {
                   <div className="card-body text-center p-4">
                     <Link to={`/profile/${user._id}`} className="text-decoration-none">
                       <div 
-                        className="bg-info text-dark rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3 shadow-sm" 
+                        className="bg-info text-dark rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3 shadow-sm overflow-hidden" 
                         style={{ width: "64px", height: "64px", fontSize: "1.5rem", fontWeight: "bold" }}
                       >
-                        {user.name?.[0].toUpperCase() || "U"}
+                        {user.profilePic ? (
+                          <img src={user.profilePic} alt={user.name} className="w-100 h-100 object-fit-cover" />
+                        ) : (
+                          user.name?.[0].toUpperCase() || "U"
+                        )}
                       </div>
                       <h5 className="card-title text-info text-truncate mb-1">{user.name}</h5>
                     </Link>

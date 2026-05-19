@@ -190,7 +190,40 @@
 }
 
 /* Global Placeholder Styling */
-.form-control::placeholder {
-  color: rgba(255, 255, 255, 0.45) !important;
-  opacity: 1; /* For Firefox */
+/* Star Rating Styles */
+.star-rating {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.star-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  font-size: 1.5rem;
+  color: #333;
+}
+
+.star-btn:hover {
+  transform: scale(1.2);
+}
+
+.star-btn.active {
+  color: #ffc107; /* Bootstrap gold/warning */
+  text-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
+  animation: star-shine 1s ease-in-out;
+}
+
+@keyframes star-shine {
+  0% { text-shadow: 0 0 0px rgba(255, 193, 7, 0); }
+  50% { text-shadow: 0 0 20px rgba(255, 193, 7, 0.8), 0 0 30px rgba(255, 193, 7, 0.4); }
+  100% { text-shadow: 0 0 10px rgba(255, 193, 7, 0.5); }
+}
+
+@media (max-width: 575.98px) {
+  .star-btn {
+    font-size: 1.2rem;
+  }
 }

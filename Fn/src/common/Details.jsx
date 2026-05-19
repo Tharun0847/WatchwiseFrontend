@@ -16,6 +16,7 @@ import { toast } from "react-hot-toast";
 
 import { useGetWatchlistQuery, useUpdateWatchlistStatusMutation } from "../services/watchlistAPI";
 import FavoriteButton from "../features/favorites/FavoriteButton";
+import DislikeButton from "../features/favorites/DislikeButton";
 import WatchlistButton from "../features/watchlist/WatchlistButton";
 import OptimizedImage from "./OptimizedImage";
 import DetailSkeleton from "./DetailSkeleton";
@@ -200,12 +201,20 @@ function Details() {
         <div className="col-lg-8 text-light">
           <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-start mb-3 gap-3 text-center text-md-start">
             <h1 className="display-4 fw-bold text-info mb-0">{title}</h1>
-            <FavoriteButton 
-              item={data} 
-              type={type} 
-              className="align-self-center align-self-md-start" 
-              style={{ width: "50px", height: "50px" }}
-            />
+            <div className="d-flex gap-2 align-self-center align-self-md-start">
+              <FavoriteButton 
+                item={data} 
+                type={type} 
+                className="" 
+                style={{ width: "50px", height: "50px" }}
+              />
+              <DislikeButton 
+                item={data} 
+                type={type} 
+                className="" 
+                style={{ width: "50px", height: "50px" }}
+              />
+            </div>
           </div>
           <div className="d-flex gap-2 gap-md-3 mb-4 align-items-center justify-content-center justify-content-md-start flex-wrap">
             <span className="badge bg-secondary text-light small">{year}</span>
@@ -336,16 +345,21 @@ function Details() {
               <h4 className="text-info mb-3 h5 uppercase">Leave a Review</h4>
               <form onSubmit={handleSubmitReview}>
                 <div className="mb-3">
-                  <label className="form-label text-info opacity-75 x-small uppercase">Rating (1-10)</label>
-                  <select 
-                    className="form-select bg-secondary bg-opacity-10 text-light border-secondary py-2"
-                    value={ratingInput}
-                    onChange={(e) => setRatingInput(Number(e.target.value))}
-                  >
-                    {[10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map(n => (
-                      <option key={n} value={n}>{n} ★</option>
+                  <label className="form-label text-info opacity-75 x-small uppercase">Rating</label>
+                  <div className="star-rating mb-2">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        className={`star-btn ${star <= ratingInput ? "active" : ""}`}
+                        onClick={() => setRatingInput(star)}
+                        title={`${star} Stars`}
+                      >
+                        <i className={`bi ${star <= ratingInput ? "bi-star-fill" : "bi-star"}`}></i>
+                      </button>
                     ))}
-                  </select>
+                  </div>
+                  <span className="text-warning small fw-bold">{ratingInput} / 10 Stars</span>
                 </div>
                 <div className="mb-3">
                   <label className="form-label text-info opacity-75 x-small uppercase">Thoughts</label>

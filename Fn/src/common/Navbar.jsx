@@ -139,8 +139,12 @@ function Navbar() {
             ) : (
               <div className="d-flex align-items-center gap-3 w-100 justify-content-between justify-content-lg-end">
                 <Link to="/profile" className="text-light text-decoration-none d-flex align-items-center gap-2 group" onClick={() => setIsNavCollapsed(true)}>
-                  <div className="bg-info text-dark rounded-circle d-flex align-items-center justify-content-center profile-avatar shadow-sm" style={{ width: "32px", height: "32px", fontWeight: "bold", fontSize: "1rem" }}>
-                    {user.username?.[0].toUpperCase()}
+                  <div className="bg-info text-dark rounded-circle d-flex align-items-center justify-content-center profile-avatar shadow-sm overflow-hidden" style={{ width: "32px", height: "32px", fontWeight: "bold", fontSize: "1rem" }}>
+                    {user.profilePic ? (
+                      <img src={user.profilePic} alt="Profile" className="w-100 h-100 object-fit-cover" />
+                    ) : (
+                      user.username?.[0].toUpperCase()
+                    )}
                   </div>
                   <div className="d-lg-none d-xl-block">
                     <span className="fw-bold text-info" style={{ fontSize: "0.9rem" }}>{user.username}</span>

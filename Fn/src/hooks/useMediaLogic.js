@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useGetWatchlistQuery, useAddToWatchlistMutation, useRemoveFromWatchlistMutation } from "../services/watchlistAPI";
+import { useGetDislikesQuery } from "../services/dislikeAPI";
 import { 
   useGetAnimeGenresQuery, 
   useGetMovieGenresQuery, 
@@ -32,13 +33,17 @@ export const useMediaLogic = (type) => {
   const [visibleCount, setVisibleCount] = useState(12);
   const [visibleRecommendedCount, setVisibleRecommendedCount] = useState(6);
 
-  // 1. Fetch Watchlist
+  // 1. Fetch Watchlist & Dislikes
   const { data: watchlistData } = useGetWatchlistQuery(user?.id, { skip: !user?.id });
+  const { data: dislikesData } = useGetDislikesQuery(user?.id, { skip: !user?.id });
   const [addToWatchlist] = useAddToWatchlistMutation();
   const [removeFromWatchlist] = useRemoveFromWatchlistMutation();
 
   const watchlist = useMemo(() => watchlistData || STABLE_EMPTY_ARRAY, [watchlistData]);
   const watchlistIds = useMemo(() => new Set(watchlist.map(item => String(item.contentId))), [watchlist]);
+
+  const dislikes = useMemo(() => dislikesData || STABLE_EMPTY_ARRAY, [dislikesData]);
+  const dislikeIds = useMemo(() => new Set(dislikes.map(item => String(item.contentId))), [dislikes]);
 
   // 2. Fetch Genres & Languages
   const isMovie = type === "movie";
@@ -99,9 +104,11 @@ export const useMediaLogic = (type) => {
   }, [currentQuery.data, isMovie, page]);
 
   const items = useMemo(() => {
-    const filtered = aggregatedItems.filter(item => isContentSafe(item, type, genres));
+    const filtered = aggregatedItems
+      .filter(item => !dislikeIds.has(String(isMovie ? item.id : item.mal_id)))
+      .filter(item => isContentSafe(item, type, genres));
     return sortMedia(filtered, type);
-  }, [aggregatedItems, type, genres]);
+  }, [aggregatedItems, type, genres, dislikeIds]);
 
   const hasMore = isMovie 
     ? (currentQuery.data?.total_pages > page) 
@@ -145,9 +152,10 @@ export const useMediaLogic = (type) => {
   const recommended = useMemo(() => {
     const filtered = aggregatedRecs
       .filter(item => !watchlistIds.has(String(isMovie ? item.id : item.mal_id)))
+      .filter(item => !dislikeIds.has(String(isMovie ? item.id : item.mal_id)))
       .filter(item => isContentSafe(item, type, genres));
     return sortMedia(filtered, type);
-  }, [aggregatedRecs, isMovie, type, genres, watchlistIds]);
+  }, [aggregatedRecs, isMovie, type, genres, watchlistIds, dislikeIds]);
 
   const hasMoreRecommended = isMovie 
     ? (currentRecQuery.data?.total_pages > recommendedPage) 
